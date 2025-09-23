@@ -6,6 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarDays, Clock, DollarSign, User, Wrench } from "lucide-react";
+import { businessTypes } from "./BusinessTypeSelector";
+import { useBusinessContext } from "@/contexts/BusinessContext";
 
 interface JobFormData {
   customerName: string;
@@ -25,16 +27,18 @@ interface JobFormProps {
   className?: string;
 }
 
-const jobTypes = [
-  "Plumbing Repair",
-  "Electrical Installation", 
-  "HVAC Maintenance",
-  "Emergency Call",
-  "Kitchen Renovation",
-  "Bathroom Repair",
-  "General Maintenance",
-  "Consultation",
-];
+// Get job types based on business type
+const getJobTypesForBusiness = (businessType: string) => {
+  const business = businessTypes.find(b => b.id === businessType);
+  return business?.specializations || [
+    "Emergency Call-out",
+    "Installation",
+    "Repair", 
+    "Maintenance",
+    "Consultation",
+    "Other"
+  ];
+};
 
 const jobDurations = [
   "Quick Job (< 2 hours)",
@@ -52,6 +56,8 @@ const jobStatuses = [
 ];
 
 export default function JobForm({ onSubmit, onCancel, className = "" }: JobFormProps) {
+  const { businessType, getCurrentBusiness } = useBusinessContext();
+  const currentBusiness = getCurrentBusiness();
   const [formData, setFormData] = useState<JobFormData>({
     customerName: "",
     jobType: "",
@@ -68,11 +74,14 @@ export default function JobForm({ onSubmit, onCancel, className = "" }: JobFormP
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const jobTypesForBusiness = getJobTypesForBusiness(businessType);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Job form submitted:", formData);
     onSubmit?.(formData);
   };
+
 
   return (
     <Card className={className}>
@@ -110,7 +119,7 @@ export default function JobForm({ onSubmit, onCancel, className = "" }: JobFormP
                   <SelectValue placeholder="Select job type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {jobTypes.map(type => (
+                  {jobTypesForBusiness.map(type => (
                     <SelectItem key={type} value={type}>{type}</SelectItem>
                   ))}
                 </SelectContent>

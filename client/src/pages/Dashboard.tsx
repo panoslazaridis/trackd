@@ -2,6 +2,8 @@ import DashboardCard from "@/components/DashboardCard";
 import InsightCard from "@/components/InsightCard";
 import ChartContainer from "@/components/ChartContainer";
 import ChartInsight from "@/components/ChartInsight";
+import AIInsights from "@/components/AIInsights";
+import { useBusinessContext } from "@/contexts/BusinessContext";
 import { Button } from "@/components/ui/button";
 import { 
   DollarSign, 
@@ -75,6 +77,9 @@ const jobTypeData = [
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
 export default function Dashboard() {
+  const { businessType, getCurrentBusiness, userProfile } = useBusinessContext();
+  const currentBusiness = getCurrentBusiness();
+  
   const handleRefreshData = () => {
     console.log("Refreshing dashboard data...");
   };
@@ -315,6 +320,16 @@ export default function Dashboard() {
             onActionClick={() => console.log("Update service marketing")}
           />
         </div>
+      </div>
+
+      {/* AI Insights Section */}
+      <div className="mt-8">
+        <AIInsights
+          businessType={businessType}
+          location={userProfile.location}
+          currentRate={userProfile.targetHourlyRate}
+          services={userProfile.specializations}
+        />
       </div>
     </div>
   );

@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { businessTypes, BusinessType } from "@/components/BusinessTypeSelector";
+import { useBusinessContext } from "@/contexts/BusinessContext";
 import { 
   User, 
   Building2, 
@@ -18,7 +20,11 @@ import {
   DollarSign,
   Clock,
   Settings,
-  Bell
+  Bell,
+  Zap,
+  Wrench,
+  Hammer,
+  Wind
 } from "lucide-react";
 
 interface BusinessProfile {
@@ -28,6 +34,7 @@ interface BusinessProfile {
   phone: string;
   address: string;
   serviceArea: string;
+  businessType: string;
   specializations: string[];
   targetHourlyRate: number;
   monthlyRevenueGoal: number;
@@ -40,70 +47,78 @@ interface BusinessProfile {
   };
 }
 
-const tradeSpecializations = [
-  "Plumbing Repairs",
-  "Emergency Plumbing", 
-  "Bathroom Installation",
-  "Kitchen Plumbing",
-  "Boiler Service",
-  "Drain Cleaning",
-  "Pipe Installation",
-  "Water Heater Service",
-  "Leak Detection",
-  "General Maintenance",
-];
+// Get current business type and available specializations
+const getCurrentBusinessType = (typeId: string): BusinessType | null => {
+  return businessTypes.find(type => type.id === typeId) || null;
+};
+
+const getBusinessTypeIcon = (typeId: string) => {
+  const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+    electrical: Zap,
+    plumbing: Wrench,
+    carpentry: Hammer,
+    hvac: Wind,
+    building: Hammer,
+    painting: Settings,
+    roofing: Settings,
+    landscaping: Settings,
+    handyman: Settings,
+    glazing: Settings,
+    flooring: Settings,
+    security: Settings
+  };
+  return iconMap[typeId] || Settings;
+};
 
 export default function Profile() {
-  const [profile, setProfile] = useState<BusinessProfile>({
-    businessName: "Manchester Plumbing Pro",
-    ownerName: "John Smith",
-    email: "john@plumbingpro.co.uk",
-    phone: "0161 123 4567",
-    address: "45 Trade Street, Manchester, M1 2AB",
-    serviceArea: "Greater Manchester",
-    specializations: ["Emergency Plumbing", "Bathroom Installation", "Boiler Service"],
-    targetHourlyRate: 55,
-    monthlyRevenueGoal: 8000,
-    weeklyHoursTarget: 35,
-    notifications: {
-      competitorAlerts: true,
-      insightDigest: true,
-      jobReminders: false,
-      marketingTips: true,
-    },
+  const { businessType, setBusinessType, userProfile, updateProfile } = useBusinessContext();
+  
+  // Only local state for editing mode and notifications (not in context)
+  const [isEditing, setIsEditing] = useState(false);
+  const [notifications, setNotifications] = useState({
+    competitorAlerts: true,
+    insightDigest: true,
+    jobReminders: false,
+    marketingTips: true,
   });
 
-  const [isEditing, setIsEditing] = useState(false);
-
-  const handleInputChange = (field: keyof BusinessProfile, value: any) => {
-    setProfile(prev => ({ ...prev, [field]: value }));
+  const handleInputChange = (field: keyof typeof userProfile, value: any) => {
+    updateProfile({ [field]: value });
   };
 
-  const handleNotificationChange = (field: keyof BusinessProfile['notifications'], value: boolean) => {
-    setProfile(prev => ({
-      ...prev,
-      notifications: { ...prev.notifications, [field]: value }
-    }));
+  const handleNotificationChange = (field: keyof typeof notifications, value: boolean) => {
+    setNotifications(prev => ({ ...prev, [field]: value }));
   };
+
+  const currentBusinessType = getCurrentBusinessType(businessType);
+  const availableSpecializations = currentBusinessType?.specializations || [];
+  const BusinessTypeIcon = getBusinessTypeIcon(businessType);
 
   const handleAddSpecialization = (specialization: string) => {
-    if (!profile.specializations.includes(specialization)) {
-      setProfile(prev => ({
-        ...prev,
-        specializations: [...prev.specializations, specialization]
-      }));
+    if (!userProfile.specializations.includes(specialization)) {
+      const newSpecializations = [...userProfile.specializations, specialization];
+      updateProfile({ specializations: newSpecializations });
     }
   };
 
+  const handleBusinessTypeChange = (newBusinessType: string) => {
+    const businessTypeData = getCurrentBusinessType(newBusinessType);
+    const newRate = businessTypeData?.avgHourlyRate || userProfile.targetHourlyRate;
+    
+    setBusinessType(newBusinessType);
+    updateProfile({
+      targetHourlyRate: newRate,
+      specializations: [] // Clear specializations when changing business type
+    });
+  };
+
   const handleRemoveSpecialization = (specialization: string) => {
-    setProfile(prev => ({
-      ...prev,
-      specializations: prev.specializations.filter(s => s !== specialization)
-    }));
+    const newSpecializations = userProfile.specializations.filter(s => s !== specialization);
+    updateProfile({ specializations: newSpecializations });
   };
 
   const handleSave = () => {
-    console.log("Saving profile:", profile);
+    console.log("Saving profile:", userProfile);
     setIsEditing(false);
   };
 
@@ -157,29 +172,35 @@ export default function Profile() {
               <Avatar className="w-16 h-16">
                 <AvatarImage src="" />
                 <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-                  {profile.ownerName.split(' ').map(n => n[0]).join('')}
+                  {userProfile.ownerName.split(' ').map(n => n[0]).join('')}
                 </AvatarFallback>
               </Avatar>
-              <div>
+              <div className="flex-1">
                 <h3 className="text-lg font-heading font-semibold" data-testid="text-owner-name">
-                  {profile.ownerName}
+                  {userProfile.ownerName}
                 </h3>
-                <p className="text-sm text-muted-foreground">{profile.businessName}</p>
+                <p className="text-sm text-muted-foreground">{userProfile.businessName}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <BusinessTypeIcon className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium text-primary">
+                    {currentBusinessType?.name || "Trade Business"}
+                  </span>
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <Mail className="w-4 h-4 text-muted-foreground" />
-                <span>{profile.email}</span>
+                <span>{userProfile.email}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Phone className="w-4 h-4 text-muted-foreground" />
-                <span>{profile.phone}</span>
+                <span>{userProfile.phone}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <MapPin className="w-4 h-4 text-muted-foreground" />
-                <span>{profile.address}</span>
+                <span>{userProfile.address}</span>
               </div>
             </div>
 
@@ -189,15 +210,15 @@ export default function Profile() {
               <div className="grid grid-cols-1 gap-2 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Target Rate:</span>
-                  <span className="font-medium">£{profile.targetHourlyRate}/hour</span>
+                  <span className="font-medium">£{userProfile.targetHourlyRate}/hour</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Monthly Goal:</span>
-                  <span className="font-medium">£{profile.monthlyRevenueGoal.toLocaleString()}</span>
+                  <span className="font-medium">£{userProfile.monthlyRevenueGoal.toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Weekly Hours:</span>
-                  <span className="font-medium">{profile.weeklyHoursTarget}h</span>
+                  <span className="font-medium">{userProfile.weeklyHoursTarget}h</span>
                 </div>
               </div>
             </div>
@@ -222,7 +243,7 @@ export default function Profile() {
                 <Label htmlFor="businessName">Business Name</Label>
                 <Input
                   id="businessName"
-                  value={profile.businessName}
+                  value={userProfile.businessName}
                   onChange={(e) => handleInputChange("businessName", e.target.value)}
                   disabled={!isEditing}
                   data-testid="input-business-name"
@@ -232,7 +253,7 @@ export default function Profile() {
                 <Label htmlFor="ownerName">Owner Name</Label>
                 <Input
                   id="ownerName"
-                  value={profile.ownerName}
+                  value={userProfile.ownerName}
                   onChange={(e) => handleInputChange("ownerName", e.target.value)}
                   disabled={!isEditing}
                   data-testid="input-owner-name"
@@ -243,7 +264,7 @@ export default function Profile() {
                 <Input
                   id="email"
                   type="email"
-                  value={profile.email}
+                  value={userProfile.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
                   disabled={!isEditing}
                   data-testid="input-email"
@@ -253,7 +274,7 @@ export default function Profile() {
                 <Label htmlFor="phone">Phone</Label>
                 <Input
                   id="phone"
-                  value={profile.phone}
+                  value={userProfile.phone}
                   onChange={(e) => handleInputChange("phone", e.target.value)}
                   disabled={!isEditing}
                   data-testid="input-phone"
@@ -265,7 +286,7 @@ export default function Profile() {
               <Label htmlFor="address">Business Address</Label>
               <Textarea
                 id="address"
-                value={profile.address}
+                value={userProfile.address}
                 onChange={(e) => handleInputChange("address", e.target.value)}
                 disabled={!isEditing}
                 data-testid="input-address"
@@ -277,18 +298,56 @@ export default function Profile() {
               <Input
                 id="serviceArea"
                 placeholder="e.g., Greater Manchester, 20-mile radius"
-                value={profile.serviceArea}
+                value={userProfile.serviceArea}
                 onChange={(e) => handleInputChange("serviceArea", e.target.value)}
                 disabled={!isEditing}
                 data-testid="input-service-area"
               />
             </div>
 
+            {/* Business Type */}
+            <div className="space-y-2">
+              <Label>Business Type</Label>
+              <Select 
+                value={businessType} 
+                onValueChange={handleBusinessTypeChange}
+                disabled={!isEditing}
+              >
+                <SelectTrigger data-testid="select-business-type">
+                  <div className="flex items-center gap-2">
+                    <BusinessTypeIcon className="w-4 h-4" />
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {businessTypes.map(type => {
+                    const Icon = type.icon;
+                    return (
+                      <SelectItem key={type.id} value={type.id}>
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-4 h-4" />
+                          <span>{type.name}</span>
+                          <Badge variant="secondary" className="text-xs ml-auto">
+                            £{type.avgHourlyRate}/hr
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              {currentBusinessType && (
+                <p className="text-xs text-muted-foreground">
+                  Industry average: £{currentBusinessType.avgHourlyRate}/hour • {currentBusinessType.description}
+                </p>
+              )}
+            </div>
+
             {/* Specializations */}
             <div className="space-y-3">
               <Label>Specializations</Label>
               <div className="flex flex-wrap gap-2 mb-3">
-                {profile.specializations.map((spec) => (
+                {userProfile.specializations.map((spec) => (
                   <Badge key={spec} variant="secondary" className="gap-1">
                     {spec}
                     {isEditing && (
@@ -309,8 +368,8 @@ export default function Profile() {
                     <SelectValue placeholder="Add specialization" />
                   </SelectTrigger>
                   <SelectContent>
-                    {tradeSpecializations
-                      .filter(spec => !profile.specializations.includes(spec))
+                    {availableSpecializations
+                      .filter(spec => !userProfile.specializations.includes(spec))
                       .map(spec => (
                         <SelectItem key={spec} value={spec}>{spec}</SelectItem>
                       ))}
@@ -340,7 +399,7 @@ export default function Profile() {
                 type="number"
                 min="0"
                 step="0.50"
-                value={profile.targetHourlyRate}
+                value={userProfile.targetHourlyRate}
                 onChange={(e) => handleInputChange("targetHourlyRate", parseFloat(e.target.value))}
                 disabled={!isEditing}
                 data-testid="input-target-rate"
@@ -357,7 +416,7 @@ export default function Profile() {
                 type="number"
                 min="0"
                 step="100"
-                value={profile.monthlyRevenueGoal}
+                value={userProfile.monthlyRevenueGoal}
                 onChange={(e) => handleInputChange("monthlyRevenueGoal", parseInt(e.target.value))}
                 disabled={!isEditing}
                 data-testid="input-monthly-goal"
@@ -374,7 +433,7 @@ export default function Profile() {
                 type="number"
                 min="0"
                 max="168"
-                value={profile.weeklyHoursTarget}
+                value={userProfile.weeklyHoursTarget}
                 onChange={(e) => handleInputChange("weeklyHoursTarget", parseInt(e.target.value))}
                 disabled={!isEditing}
                 data-testid="input-weekly-hours"
@@ -403,7 +462,7 @@ export default function Profile() {
                 </div>
               </div>
               <Switch
-                checked={profile.notifications.competitorAlerts}
+                checked={notifications.competitorAlerts}
                 onCheckedChange={(checked) => handleNotificationChange("competitorAlerts", checked)}
                 disabled={!isEditing}
                 data-testid="switch-competitor-alerts"
@@ -418,7 +477,7 @@ export default function Profile() {
                 </div>
               </div>
               <Switch
-                checked={profile.notifications.insightDigest}
+                checked={notifications.insightDigest}
                 onCheckedChange={(checked) => handleNotificationChange("insightDigest", checked)}
                 disabled={!isEditing}
                 data-testid="switch-insight-digest"
@@ -433,7 +492,7 @@ export default function Profile() {
                 </div>
               </div>
               <Switch
-                checked={profile.notifications.jobReminders}
+                checked={notifications.jobReminders}
                 onCheckedChange={(checked) => handleNotificationChange("jobReminders", checked)}
                 disabled={!isEditing}
                 data-testid="switch-job-reminders"
@@ -448,7 +507,7 @@ export default function Profile() {
                 </div>
               </div>
               <Switch
-                checked={profile.notifications.marketingTips}
+                checked={notifications.marketingTips}
                 onCheckedChange={(checked) => handleNotificationChange("marketingTips", checked)}
                 disabled={!isEditing}
                 data-testid="switch-marketing-tips"

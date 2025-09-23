@@ -1,0 +1,183 @@
+1. Electrical Services
+Main Job Types:
+
+Emergency callouts (power outages, blown fuses, electrical faults)
+Socket and switch installations
+Consumer unit (fuse box) upgrades
+Lighting installations (indoor/outdoor)
+Electric shower installations
+Kitchen appliance installations
+Security system wiring
+Electric vehicle charging point installation
+PAT testing
+Electrical safety inspections
+Rewiring (partial/full house)
+Commercial electrical work
+Other (open text field)
+2. Plumbing Services
+Main Job Types:
+
+Emergency callouts (burst pipes, blocked drains, boiler breakdowns)
+Bathroom installations (full/partial)
+Kitchen plumbing
+Boiler repairs and servicing
+Central heating installations
+Toilet repairs and replacements
+Tap and valve installations
+Pipe repairs and replacements
+Drain cleaning and unblocking
+Water heater installations
+Radiator installations
+Leak detection and repairs
+Gas safety inspections
+Other (open text field)
+3. HVAC (Heating, Ventilation & Air Conditioning)
+Main Job Types:
+
+Boiler installations
+Boiler repairs and servicing
+Central heating system installations
+Air conditioning installations
+Ventilation system installations
+Heat pump installations
+Radiator replacements
+Thermostat installations
+Ductwork installations
+Gas safety checks
+Annual boiler services
+Emergency heating repairs
+Smart heating system installations
+Other (open text field)
+4. General Building & Construction
+Main Job Types:
+
+Home extensions
+Loft conversions
+Kitchen renovations
+Bathroom renovations
+Roofing repairs and replacements
+Foundation work
+Structural repairs
+Insulation installations
+Driveway installations
+Garage constructions
+Shed and outbuilding construction
+Planning and building regulation applications
+Other (open text field)
+5. Carpentry & Joinery
+Main Job Types:
+
+Kitchen fitting
+Built-in wardrobes and storage
+Door installations and repairs
+Window installations and repairs
+Flooring installations (wood, laminate)
+Staircase installations and repairs
+Skirting and architrave installations
+Bespoke furniture making
+Shelving installations
+Decking construction
+Fence installations
+Property maintenance carpentry
+Other (open text field)
+6. Painting & Decorating
+Main Job Types:
+
+Interior painting (rooms, hallways, stairwells)
+Exterior painting (houses, fences, outbuildings)
+Wallpaper hanging
+Wall preparation and repairs
+Ceiling painting and repairs
+Commercial painting projects
+Specialist finishes (textured, decorative)
+Paint removal and stripping
+Property maintenance painting
+Insurance work (post-damage restoration)
+Other (open text field)
+7. Roofing Services
+Main Job Types:
+
+Roof repairs (tiles, slates, felt)
+Full roof replacements
+Gutter cleaning and repairs
+Chimney repairs and maintenance
+Flat roof installations and repairs
+Roof inspections and surveys
+Fascia and soffit repairs
+Roof insulation
+Skylight installations
+Emergency roof repairs (storm damage)
+Lead work
+Other (open text field)
+8. Landscaping & Groundwork
+Main Job Types:
+
+Garden design and landscaping
+Patio and pathway installations
+Lawn installation and maintenance
+Tree surgery and removal
+Hedge cutting and maintenance
+Drainage systems
+Garden clearance
+Retaining wall construction
+Artificial grass installations
+Outdoor lighting installations
+Water feature installations
+Other (open text field)
+9. Handyman Services
+Main Job Types:
+
+Property maintenance (multiple small jobs)
+Flat-pack furniture assembly
+Picture hanging and mounting
+Minor plumbing repairs
+Minor electrical work (non-certified)
+Door and lock repairs
+Window repairs
+Gutter cleaning
+Pressure washing
+Home security installations
+Appliance installations
+Other (open text field)
+10. Glazing Services
+Main Job Types:
+
+Double glazing installations
+Window repairs and replacements
+Door installations (UPVC, composite, bi-fold)
+Conservatory installations
+Emergency glazing (broken windows)
+Glass replacements
+Mirror installations
+Shower screen installations
+Secondary glazing
+Commercial glazing
+Other (open text field)
+11. Flooring Services
+Main Job Types:
+
+Carpet installations
+Laminate flooring installations
+Hardwood flooring installations
+Vinyl and LVT installations
+Tile installations (ceramic, porcelain, natural stone)
+Floor repairs and maintenance
+Underfloor heating installations
+Floor preparation and leveling
+Commercial flooring projects
+Flooring removals
+Other (open text field)
+12. Security & Locksmith Services
+Main Job Types:
+
+Lock changes and upgrades
+Emergency lockout assistance
+Security system installations
+CCTV installations
+Alarm system installations
+Safe installations
+Key cutting services
+Door and window security upgrades
+Access control systems
+Security surveys and consultations
+Other (open text field)

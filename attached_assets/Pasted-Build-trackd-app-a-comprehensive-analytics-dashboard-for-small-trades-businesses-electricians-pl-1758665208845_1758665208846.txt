@@ -1,0 +1,176 @@
+Build trackd.app - a comprehensive analytics dashboard for small trades businesses (electricians, plumbers, HVAC, handymen) that provides actionable insights to help them optimize pricing, understand competitors, and improve profitability.
+Core Value Proposition: Transform raw business data into prescriptive insights that tell users exactly what to do to make more money.
+Technical Stack
+
+Frontend: React with TypeScript
+Database: Supabase (PostgreSQL)
+Styling: Tailwind CSS
+Charts: Recharts library
+Icons: Lucide React
+Authentication: Supabase Auth
+
+Brand Design System
+Primary Color: #508682 (sage green) - for CTAs, headers, primary elements
+Accent Color: #E8B894 (warm peach) - for highlights, success states
+Background: #F8F9FA (warm off-white)
+Text: #2C3E50 (primary), #708090 (secondary), #95A5A6 (light)
+Typography: Inter (body), Nunito (headings)
+Style: Clean, rounded corners, friendly but professional
+Database Schema Requirements
+Core Tables Needed:
+
+users - Business owner profiles, subscription info, business details
+jobs - Individual job records with revenue, hours, customer info, project details
+customers - Customer profiles with lifetime value, satisfaction scores
+competitors - Local competitor data, pricing, market positioning
+insights - Generated recommendations and business insights
+
+Key Relationships:
+
+Users have many jobs, customers, competitors, insights
+Jobs belong to users and customers
+Insights are generated from job and competitor data analysis
+
+Application Structure
+Main Navigation:
+
+Dashboard (analytics overview)
+Jobs (management and entry)
+Customers (relationship tracking)
+Competitors (market analysis)
+Business Profile (settings and goals)
+Insights (detailed recommendations)
+
+Core Pages Needed:
+
+Dashboard - Main analytics with 7 different chart types and top insights
+Job Entry - Simple form and bulk AI-powered entry
+Job List - Manage existing jobs with filters and search
+Customer Management - Track customer relationships and value
+Competitor Analysis - Market positioning and pricing comparison
+Business Profile - Business setup, goals, and preferences
+Insights Detail - Detailed view of all generated recommendations
+
+Key Features to Implement
+1. Job Management System
+
+Simple Entry Form: Customer name, job type, revenue, hours, expenses, dates
+Bulk AI Entry: Parse natural language job descriptions into structured data
+Flexible Validation: Support wide ranges (1-500+ hours, any revenue amount)
+Project Duration: Quick job, day project, multi-day, weekly, monthly
+Job Status Tracking: Quoted → Booked → In Progress → Completed
+
+2. Analytics Dashboard
+Must include these 7 chart types:
+
+Job Efficiency Matrix (Scatter) - Hours vs Revenue with quadrant analysis
+Competitor Pricing Comparison (Bar) - Your rates vs market average
+Customer Lifetime Value (Bar) - Revenue per customer over time
+Seasonal Performance Trends (Line) - Monthly revenue patterns
+Resource Utilization (Stacked Bar) - Time allocation by job type
+Pipeline Forecasting (Area) - Future revenue from booked jobs
+Market Position Analysis (Gauge) - Competitive positioning
+
+Top Insights Section: Display 3 rotating actionable recommendations like:
+
+"You're undercharging for emergency calls by £15/hour vs competitors"
+"Customer 'Sarah M' generates 3x more revenue - prioritize her projects"
+"January is your peak month - allocate 40% more marketing budget"
+
+3. Competitor Intelligence
+
+Auto-Discovery: Find local competitors based on business type and location
+Pricing Tracking: Monitor competitor rates and get alerts on changes
+Market Analysis: Compare your positioning vs competitors
+Manual Entry: Add competitors with pricing and service details
+
+4. Customer Analytics
+
+Lifetime Value Calculation: Track total revenue per customer
+Repeat Customer Analysis: Identify most valuable relationships
+Satisfaction Tracking: Rate customers and likelihood to recommend
+Revenue Patterns: Understand customer buying behavior
+
+5. Business Intelligence
+
+Profit Margin Analysis: Calculate profitability by job type
+Pricing Optimization: Recommend rate adjustments based on market data
+Efficiency Metrics: Track revenue per hour trends
+Goal Tracking: Set and monitor business targets
+
+User Experience Requirements
+Onboarding Flow:
+
+Account creation and business profile setup
+Service area and specialization selection
+Initial competitor discovery
+First job entry tutorial
+Goal setting (revenue targets, hourly rates)
+
+Daily Usage Pattern:
+
+Check top 3 insights on dashboard
+Review any competitor pricing alerts
+Enter completed jobs (simple or bulk)
+Monitor pipeline and upcoming work
+Act on specific recommendations
+
+Data Entry Priorities:
+
+Make job entry as fast as possible (under 30 seconds)
+Support bulk entry for multiple jobs at once
+Auto-complete customer names from history
+Flexible validation that doesn't block users
+
+Insight Generation Logic
+Types of Insights to Generate:
+
+Pricing Insights: Compare rates to competitors, identify undercharging
+Efficiency Insights: Find high-profit vs low-profit job patterns
+Customer Insights: Identify most valuable customers and relationships
+Market Insights: Positioning vs competitors, opportunities
+Forecasting Insights: Pipeline gaps, seasonal patterns, growth trends
+
+Insight Characteristics:
+
+Always actionable ("Do X to achieve Y")
+Specific and quantified ("Increase rates by £15/hour")
+Business impact focused ("This will add £2,000/month revenue")
+Prioritized by potential impact (high/medium/low urgency)
+
+Technical Implementation Notes
+Error Handling:
+
+Robust form validation with helpful error messages
+Graceful fallbacks when AI parsing fails
+Comprehensive error logging for debugging
+User-friendly error states
+
+Performance Considerations:
+
+Lazy load chart components
+Cache frequently accessed data
+Pagination for large job lists
+Progressive loading for dashboard
+
+Security Requirements:
+
+Secure authentication with Supabase
+Encrypt sensitive business data
+Audit trail for data changes
+GDPR-compliant data handling
+
+Success Criteria
+User Engagement Metrics:
+
+Users enter jobs consistently (weekly)
+High insight action rate (>60% act on recommendations)
+Regular competitor analysis usage
+Low churn after seeing first insights
+
+Business Impact Goals:
+
+Users report revenue increases after using insights
+Pricing confidence improvements
+Better customer relationship management
+Improved profit margins through efficiency gains

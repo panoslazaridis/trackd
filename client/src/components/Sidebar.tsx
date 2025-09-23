@@ -36,14 +36,20 @@ export default function Sidebar({ className = "" }: SidebarProps) {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
         {!isCollapsed && (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <BarChart3 className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="font-heading font-bold text-lg text-sidebar-foreground">
-              trackd
-            </span>
+          <div className="flex items-center gap-3">
+            <img 
+              src="/attached_assets/trackd logo_1758666477917.png" 
+              alt="trackd logo" 
+              className="h-8 w-auto"
+            />
           </div>
+        )}
+        {isCollapsed && (
+          <img 
+            src="/attached_assets/trackd logo_1758666477917.png" 
+            alt="trackd logo" 
+            className="h-6 w-auto"
+          />
         )}
         <Button
           variant="ghost"

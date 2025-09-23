@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import express from "express";
 import { generateCompetitorAnalysis, generatePricingAnalysis } from "./ai";
 import { z } from "zod";
+import { insertJobSchema, type Job } from "@shared/schema";
 
 // Schema for AI analysis requests
 const competitorAnalysisSchema = z.object({
@@ -46,6 +47,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to generate pricing analysis",
         message: error instanceof Error ? error.message : "Unknown error"
       });
+    }
+  });
+
+  // Job routes
+  app.get("/api/jobs", async (req, res) => {
+    // For now, we'll use a test user ID since authentication is not implemented
+    const userId = "test-user-id";
+    
+    try {
+      const jobs = await storage.getJobs(userId);
+      res.json(jobs);
+    } catch (error) {
+      console.error("Error fetching jobs:", error);
+      res.status(500).json({ error: "Failed to fetch jobs" });
+    }
+  });
+
+  app.post("/api/jobs", async (req, res) => {
+    // For now, we'll use a test user ID since authentication is not implemented
+    const userId = "test-user-id";
+    
+    try {
+      const jobData = insertJobSchema.parse(req.body);
+      const job = await storage.createJob(userId, jobData);
+      res.json(job);
+    } catch (error) {
+      console.error("Error creating job:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid job data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create job" });
+    }
+  });
+
+  app.put("/api/jobs/:id", async (req, res) => {
+    // For now, we'll use a test user ID since authentication is not implemented
+    const userId = "test-user-id";
+    
+    try {
+      const jobId = req.params.id;
+      const jobData = insertJobSchema.partial().parse(req.body);
+      const job = await storage.updateJob(jobId, userId, jobData);
+      res.json(job);
+    } catch (error) {
+      console.error("Error updating job:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid job data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update job" });
+    }
+  });
+
+  app.delete("/api/jobs/:id", async (req, res) => {
+    // For now, we'll use a test user ID since authentication is not implemented
+    const userId = "test-user-id";
+    
+    try {
+      const jobId = req.params.id;
+      await storage.deleteJob(jobId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting job:", error);
+      res.status(500).json({ error: "Failed to delete job" });
     }
   });
 

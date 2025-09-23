@@ -1,81 +1,116 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import JobForm from "@/components/JobForm";
 import JobTable from "@/components/JobTable";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Upload, BarChart3 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Job } from "@shared/schema";
 
-// Mock jobs data - TODO: remove mock functionality
-const mockJobs = [
-  {
-    id: "1",
-    customerName: "Sarah Matthews",
-    jobType: "Emergency Plumbing",
-    revenue: 320.00,
-    hours: 4.5,
-    status: "Completed" as const,
-    date: "2024-01-15",
-    hourlyRate: 71.11,
-  },
-  {
-    id: "2", 
-    customerName: "David Wilson",
-    jobType: "Kitchen Renovation",
-    revenue: 2400.00,
-    hours: 32,
-    status: "In Progress" as const,
-    date: "2024-01-10",
-    hourlyRate: 75.00,
-  },
-  {
-    id: "3",
-    customerName: "Emma Johnson",
-    jobType: "Bathroom Repair",
-    revenue: 450.00,
-    hours: 6,
-    status: "Booked" as const,
-    date: "2024-01-20",
-    hourlyRate: 75.00,
-  },
-  {
-    id: "4",
-    customerName: "Michael Brown",
-    jobType: "HVAC Maintenance", 
-    revenue: 180.00,
-    hours: 3,
-    status: "Quoted" as const,
-    date: "2024-01-18",
-    hourlyRate: 60.00,
-  },
-  {
-    id: "5",
-    customerName: "Lisa Anderson",
-    jobType: "Boiler Installation",
-    revenue: 1200.00,
-    hours: 16,
-    status: "Completed" as const,
-    date: "2024-01-12",
-    hourlyRate: 75.00,
-  },
-];
+// Job status type for consistency
+type JobStatus = "Quoted" | "Booked" | "In Progress" | "Completed" | "Cancelled";
 
 export default function Jobs() {
-  const [jobs, setJobs] = useState(mockJobs);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingJob, setEditingJob] = useState(null);
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Fetch jobs from API
+  const { data: jobs = [], isLoading, error } = useQuery({
+    queryKey: ['/api/jobs'],
+    queryFn: () => fetch('/api/jobs').then(res => res.json()),
+  });
+  
+  // Create job mutation
+  const createJobMutation = useMutation({
+    mutationFn: async (jobData: any) => {
+      const response = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(jobData),
+      });
+      if (!response.ok) throw new Error('Failed to create job');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      toast({ title: "Success", description: "Job created successfully" });
+      setIsFormOpen(false);
+    },
+    onError: (error) => {
+      toast({ 
+        title: "Error", 
+        description: "Failed to create job", 
+        variant: "destructive" 
+      });
+      console.error('Error creating job:', error);
+    },
+  });
+  
+  // Update job mutation
+  const updateJobMutation = useMutation({
+    mutationFn: async ({ id, ...jobData }: any) => {
+      const response = await fetch(`/api/jobs/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(jobData),
+      });
+      if (!response.ok) throw new Error('Failed to update job');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      toast({ title: "Success", description: "Job updated successfully" });
+      setIsFormOpen(false);
+      setEditingJob(null);
+    },
+    onError: (error) => {
+      toast({ 
+        title: "Error", 
+        description: "Failed to update job", 
+        variant: "destructive" 
+      });
+      console.error('Error updating job:', error);
+    },
+  });
+  
+  // Delete job mutation
+  const deleteJobMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const response = await fetch(`/api/jobs/${jobId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete job');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      toast({ title: "Success", description: "Job deleted successfully" });
+    },
+    onError: (error) => {
+      toast({ 
+        title: "Error", 
+        description: "Failed to delete job", 
+        variant: "destructive" 
+      });
+      console.error('Error deleting job:', error);
+    },
+  });
 
   const handleAddJob = (jobData: any) => {
     console.log("Adding new job:", jobData);
-    const newJob = {
+    const processedJobData = {
       ...jobData,
-      id: String(Date.now()),
-      revenue: parseFloat(jobData.revenue),
-      hours: parseFloat(jobData.hours),
-      hourlyRate: parseFloat(jobData.revenue) / parseFloat(jobData.hours),
+      revenue: parseFloat(jobData.revenue).toString(),
+      hours: parseFloat(jobData.hours).toString(),
+      hourlyRate: (parseFloat(jobData.revenue) / parseFloat(jobData.hours)).toString(),
+      date: new Date(jobData.date),
     };
-    setJobs(prev => [newJob, ...prev]);
-    setIsFormOpen(false);
+    createJobMutation.mutate(processedJobData);
   };
 
   const handleEditJob = (job: any) => {
@@ -84,9 +119,24 @@ export default function Jobs() {
     setIsFormOpen(true);
   };
 
+  const handleUpdateJob = (jobData: any) => {
+    if (!editingJob) return;
+    
+    console.log("Updating job:", jobData);
+    const processedJobData = {
+      id: editingJob.id,
+      ...jobData,
+      revenue: parseFloat(jobData.revenue).toString(),
+      hours: parseFloat(jobData.hours).toString(),
+      hourlyRate: (parseFloat(jobData.revenue) / parseFloat(jobData.hours)).toString(),
+      date: new Date(jobData.date),
+    };
+    updateJobMutation.mutate(processedJobData);
+  };
+
   const handleDeleteJob = (jobId: string) => {
     console.log("Delete job:", jobId);
-    setJobs(prev => prev.filter(job => job.id !== jobId));
+    deleteJobMutation.mutate(jobId);
   };
 
   const handleBulkImport = () => {
@@ -94,9 +144,15 @@ export default function Jobs() {
     // TODO: Implement AI bulk import functionality
   };
 
-  const completedJobs = jobs.filter(job => job.status === 'Completed');
-  const totalRevenue = completedJobs.reduce((sum, job) => sum + job.revenue, 0);
-  const totalHours = completedJobs.reduce((sum, job) => sum + job.hours, 0);
+  const completedJobs = jobs.filter((job: Job) => job.status === 'Completed');
+  const totalRevenue = completedJobs.reduce((sum: number, job: Job) => {
+    const revenue = typeof job.revenue === 'string' ? parseFloat(job.revenue) : job.revenue;
+    return sum + (isNaN(revenue) ? 0 : revenue);
+  }, 0);
+  const totalHours = completedJobs.reduce((sum: number, job: Job) => {
+    const hours = typeof job.hours === 'string' ? parseFloat(job.hours) : job.hours;
+    return sum + (isNaN(hours) ? 0 : hours);
+  }, 0);
 
   return (
     <div className="p-6 space-y-6">
@@ -129,11 +185,15 @@ export default function Jobs() {
                 </DialogTitle>
               </DialogHeader>
               <JobForm
-                onSubmit={handleAddJob}
+                onSubmit={editingJob ? handleUpdateJob : handleAddJob}
                 onCancel={() => {
                   setIsFormOpen(false);
                   setEditingJob(null);
                 }}
+                // Note: JobForm component doesn't support initialData prop yet
+                // TODO: Update JobForm to support editing with initialData
+                // initialData={editingJob || undefined}
+                // isLoading={editingJob ? updateJobMutation.isPending : createJobMutation.isPending}
               />
             </DialogContent>
           </Dialog>
@@ -190,8 +250,8 @@ export default function Jobs() {
         
         <TabsContent value="pipeline">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {['Quoted', 'Booked', 'In Progress', 'Completed'].map(status => {
-              const statusJobs = jobs.filter(job => job.status === status);
+            {(['Quoted', 'Booked', 'In Progress', 'Completed'] as JobStatus[]).map(status => {
+              const statusJobs = jobs.filter((job: any) => job.status === status);
               return (
                 <div key={status} className="bg-card border border-card-border rounded-lg p-4">
                   <h3 className="font-heading font-semibold mb-3 flex items-center justify-between">
@@ -205,7 +265,7 @@ export default function Jobs() {
                       <div key={job.id} className="bg-muted/30 rounded-lg p-3 hover-elevate">
                         <p className="font-medium text-sm">{job.customerName}</p>
                         <p className="text-xs text-muted-foreground">{job.jobType}</p>
-                        <p className="text-sm font-medium text-chart-1">£{job.revenue.toFixed(0)}</p>
+                        <p className="text-sm font-medium text-chart-1">£{Number(job.revenue || 0).toFixed(0)}</p>
                       </div>
                     ))}
                   </div>

@@ -118,11 +118,11 @@ export default function JobTable({ jobs = [], onEditJob, onDeleteJob, className 
                     </TableCell>
                     <TableCell>{job.jobType}</TableCell>
                     <TableCell className="text-right font-medium">
-                      £{job.revenue.toFixed(2)}
+                      £{Number(job.revenue || 0).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">{job.hours}h</TableCell>
                     <TableCell className="text-right">
-                      £{job.hourlyRate.toFixed(2)}
+                      £{Number(job.hourlyRate || 0).toFixed(2)}
                     </TableCell>
                     <TableCell>
                       <Badge className={`text-xs ${statusConfig[job.status].color}`}>

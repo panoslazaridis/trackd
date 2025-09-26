@@ -36,28 +36,30 @@ export default function Sidebar({ className = "" }: SidebarProps) {
       isCollapsed ? "w-16" : "w-64"
     } ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
+      <div className="relative p-4 border-b border-sidebar-border">
         {!isCollapsed && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center">
             <img 
               src={trackd_logo} 
               alt="trackd logo" 
-              className="h-12 w-auto"
+              className="h-20 w-full object-contain"
             />
           </div>
         )}
         {isCollapsed && (
-          <img 
-            src="/attached_assets/trackd logo_1758666477917.png" 
-            alt="trackd logo" 
-            className="h-6 w-auto"
-          />
+          <div className="flex items-center justify-center">
+            <img 
+              src="/attached_assets/trackd logo_1758666477917.png" 
+              alt="trackd logo" 
+              className="h-8 w-full object-contain"
+            />
+          </div>
         )}
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="text-sidebar-foreground hover-elevate"
+          className="absolute top-2 right-2 text-sidebar-foreground hover-elevate"
           data-testid="button-sidebar-toggle"
         >
           {isCollapsed ? <Menu className="w-4 h-4" /> : <X className="w-4 h-4" />}

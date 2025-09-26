@@ -1,4 +1,6 @@
 import DashboardCard from "@/components/DashboardCard";
+import BusinessHealthCheck from "@/components/BusinessHealthCheck";
+import DailyFocus from "@/components/DailyFocus";
 import InsightCard from "@/components/InsightCard";
 import ChartContainer from "@/components/ChartContainer";
 import ChartInsight from "@/components/ChartInsight";
@@ -399,37 +401,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <DashboardCard
-          title="Monthly Revenue"
-          value="£6,240"
-          subtitle="This month"
-          icon={DollarSign}
-          trend={{ value: "12.5%", isPositive: true }}
-        />
-        <DashboardCard
-          title="Hours Worked"
-          value="142"
-          subtitle="This month"
-          icon={Clock}
-          trend={{ value: "8.2%", isPositive: true }}
-        />
-        <DashboardCard
-          title="Active Customers"
-          value="18"
-          subtitle="Regular clients"
-          icon={Users}
-          trend={{ value: "2", isPositive: true }}
-        />
-        <DashboardCard
-          title="Avg. Hourly Rate"
-          value="£52.50"
-          subtitle="This month"
-          icon={TrendingUp}
-          trend={{ value: "3.2%", isPositive: true }}
-        />
-      </div>
+      {/* Business Health Check */}
+      <BusinessHealthCheck />
+
+      {/* Daily Focus */}
+      <DailyFocus />
 
       {/* Top Insights */}
       <div>
@@ -438,26 +414,23 @@ export default function Dashboard() {
           <InsightCard
             type="pricing"
             priority="high"
-            title="Emergency Rate Below Market"
-            description="You're charging £5/hour less than competitors for emergency calls"
-            impact="£850 additional monthly revenue"
+            problem="You're charging £5/hour less than competitors for emergency calls"
             action="Increase Emergency Rate to £70/hour"
+            impact="+£850/month"
           />
           <InsightCard
             type="customer"
             priority="medium"
-            title="Focus on High-Value Customers"
-            description="Sarah M. generates 40% more revenue per hour than average"
-            impact="Strengthen key relationship"
+            problem="Sarah M. generates 40% more revenue per hour than average"
             action="Schedule Follow-up Meeting"
+            impact="Strengthen key relationship"
           />
           <InsightCard
             type="efficiency"
             priority="low"
-            title="Peak Season Opportunity"
-            description="Winter months show 25% higher demand for emergency services"
-            impact="Plan resource allocation"
+            problem="Winter months show 25% higher demand for emergency services"
             action="Review Winter Availability"
+            impact="Plan resource allocation"
           />
         </div>
       </div>

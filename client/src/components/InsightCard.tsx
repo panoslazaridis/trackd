@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, TrendingUp, Users, DollarSign, LucideIcon } from "lucide-react";
@@ -9,10 +9,9 @@ type InsightPriority = "high" | "medium" | "low";
 interface InsightCardProps {
   type: InsightType;
   priority: InsightPriority;
-  title: string;
-  description: string;
-  impact: string;
+  problem: string;
   action: string;
+  impact: string;
   onTakeAction?: () => void;
   className?: string;
 }
@@ -33,10 +32,9 @@ const priorityConfig: Record<InsightPriority, { color: string; label: string }> 
 export default function InsightCard({
   type,
   priority,
-  title,
-  description,
-  impact,
+  problem,
   action,
+  impact,
   onTakeAction,
   className = "",
 }: InsightCardProps) {
@@ -50,32 +48,27 @@ export default function InsightCard({
   };
 
   return (
-    <Card className={`hover-elevate border-l-4 border-l-chart-2 ${className}`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <div className={`p-2 rounded-lg ${typeSettings.bgColor}`}>
-              <Icon className={`h-4 w-4 ${typeSettings.color}`} />
-            </div>
-            <div>
-              <CardTitle className="text-base font-heading font-semibold">
-                {title}
-              </CardTitle>
-              <CardDescription className="text-sm mt-1">
-                {description}
-              </CardDescription>
+    <Card className={`hover-elevate ${className}`}>
+      <CardContent className="p-6">
+        <div className="flex items-start gap-3 mb-4">
+          <div className={`p-2 rounded-lg ${typeSettings.bgColor}`}>
+            <Icon className={`h-4 w-4 ${typeSettings.color}`} />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm text-muted-foreground font-medium mb-2">
+              {problem}
+            </p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Badge className={`text-xs ${prioritySettings.color}`}>
+                  {prioritySettings.label}
+                </Badge>
+                <span className="text-xs font-medium text-chart-1">
+                  {impact}
+                </span>
+              </div>
             </div>
           </div>
-          <Badge className={`text-xs ${prioritySettings.color}`}>
-            {prioritySettings.label}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="bg-muted/30 rounded-lg p-3">
-          <p className="text-sm font-medium text-chart-1">
-            Potential Impact: {impact}
-          </p>
         </div>
         
         <Button 

@@ -1,0 +1,101 @@
+Primary Changes Needed
+1. Dashboard Restructure
+Replace the current top metrics section with a simple "Business Health Check":
+
+Create 4 traffic light indicators (green/yellow/red circles)
+Cover: Revenue status, Pricing vs market, Pipeline strength, Cash flow
+Each should show status + brief message ("On track", "Below market", "3 overdue")
+Place this prominently at the top of the dashboard
+
+2. Add "Daily Focus" Section
+Add below the health check:
+
+Single prominent insight box with today's most important action
+Example: "Follow up with Sarah M. about bathroom project - she's worth 3x more than average"
+Style with light blue background and border
+
+3. Simplify Insight Cards
+Transform the current verbose insight cards to single-sentence format:
+
+Remove the "What This Shows" explanations and long paragraphs
+Keep only: Problem/opportunity + Action + Impact
+Example: "You're charging £15/hour less than competitors" + "Increase Emergency Rate to £70" + "+£850/month"
+Make action buttons more prominent
+
+4. Move Complex Charts to New "Advanced Analytics" Section
+Create a new navigation item called "Advanced Analytics":
+
+Move the scatter plot, detailed competitor charts, and resource utilization there
+Keep the charts exactly as they are, just relocate them
+The scatter plot can stay as the main feature in Advanced Analytics
+Update navigation to include this new section
+
+5. AI-Powered Dynamic Insights
+Set up API integrations for generating the simplified insights:
+
+Create API routes for both OpenAI (GPT-3.5-turbo) and Claude (Haiku) - use the cheaper models
+The insights should be generated from the actual user data we're already tracking
+Create a prompt that takes job data, customer data, and competitor data to generate 3 actionable insights
+Format: Single sentence problem + specific action + financial impact
+Have the system pick the 3 most relevant insights daily
+
+6. Enhance Job Entry Form
+Add a "Should I Take This Job?" feature:
+
+As users fill out job details (revenue, hours, customer type), show real-time profitability indicator
+Green checkmark: "Take it - fits your profitable job profile"
+Red X: "Consider passing - below your £X/hour target"
+Calculate based on their historical profitable job patterns
+
+7. Future Features - Frontend Only (No Backend)
+Add placeholder components for upcoming features:
+WhatsApp Integration UI:
+
+Create a settings card showing "Daily WhatsApp Updates"
+Include description: "Get your key business insight via WhatsApp each morning"
+Add disabled "Connect WhatsApp" button with "Feature coming soon" text
+
+Photo Receipt Capture UI:
+
+Add a card in expenses/job entry area
+Dashed border upload area with camera icon
+Text: "Snap a photo of your receipt - Auto-categorize expenses and track job profitability"
+Disabled "Take Photo (Coming Soon)" button
+
+8. Navigation Simplification
+Update the sidebar navigation:
+
+Dashboard (existing)
+Jobs (existing)
+Customers (existing)
+Advanced Analytics (new - contains all the detailed charts)
+Competitors (existing)
+Profile (existing)
+
+Technical Implementation Notes
+API Integration Setup
+
+Create /api/openai-insights endpoint for GPT-3.5-turbo
+Create /api/claude-insights endpoint for Claude Haiku
+Both should accept business data and return 3 formatted insights
+Use the existing job, customer, and competitor data as input
+Focus on cost-effective models since insights will be generated frequently
+
+Design Requirements
+
+Maintain existing brand colors: #508682 (sage green), #E8B894 (peach)
+Keep all existing database schema unchanged
+Preserve all current functionality - just reorganize presentation
+Ensure mobile-responsive design for trades workers using phones
+
+Data Flow
+
+Use existing job profitability calculations for the "Should I Take This Job" feature
+Pull competitor pricing data for market comparison insights
+Leverage customer lifetime value calculations for relationship insights
+Use seasonal job patterns for timing recommendations
+
+Success Criteria
+The enhanced dashboard should give users confidence about their business health within 30 seconds of opening the app, without requiring them to analyze charts or read lengthy explanations.
+Focus on transforming data into actionable advice rather than presenting raw analytics. The app should feel like having a business advisor who watches the numbers and tells you exactly what to do next.
+Keep the existing analytical depth in the Advanced Analytics section for users who want it, but make the main dashboard about peace of mind and clear direction.

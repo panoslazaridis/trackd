@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   DollarSign, 
   Clock, 
@@ -121,16 +121,46 @@ export default function Dashboard() {
   const [selectedChartsForModal, setSelectedChartsForModal] = useState<string[]>([]);
   const [dashboardCharts, setDashboardCharts] = useState<string[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Load dashboard charts from localStorage on mount
+  useEffect(() => {
+    const savedCharts = localStorage.getItem('trackd-dashboard-charts');
+    if (savedCharts) {
+      try {
+        const parsedCharts = JSON.parse(savedCharts);
+        if (Array.isArray(parsedCharts)) {
+          setDashboardCharts(parsedCharts);
+        }
+      } catch (error) {
+        console.error('Failed to parse saved dashboard charts:', error);
+      }
+    }
+  }, []);
+
+  // Save dashboard charts to localStorage whenever they change
+  useEffect(() => {
+    if (dashboardCharts.length > 0) {
+      localStorage.setItem('trackd-dashboard-charts', JSON.stringify(dashboardCharts));
+    } else {
+      localStorage.removeItem('trackd-dashboard-charts');
+    }
+  }, [dashboardCharts]);
   
   const handleRefreshData = () => {
     console.log("Refreshing dashboard data...");
   };
 
   const handleAddCharts = () => {
-    console.log("Adding charts to dashboard:", selectedChartsForModal);
-    setDashboardCharts(prev => [...prev, ...selectedChartsForModal.filter(id => !prev.includes(id))]);
+    console.log("Updating dashboard with charts:", selectedChartsForModal);
+    setDashboardCharts([...selectedChartsForModal]);
     setIsDialogOpen(false);
     setSelectedChartsForModal([]);
+  };
+
+  const handleOpenModal = () => {
+    // Pre-populate modal with currently selected dashboard charts
+    setSelectedChartsForModal([...dashboardCharts]);
+    setIsDialogOpen(true);
   };
 
   const toggleChartSelection = (chartId: string) => {
@@ -297,17 +327,15 @@ export default function Dashboard() {
             Refresh
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" data-testid="button-add-chart">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Chart
-              </Button>
-            </DialogTrigger>
+            <Button variant="outline" data-testid="button-add-chart" onClick={handleOpenModal}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Chart
+            </Button>
             <DialogContent className="max-w-4xl">
               <DialogHeader>
-                <DialogTitle>Add Charts to Dashboard</DialogTitle>
+                <DialogTitle>Manage Dashboard Charts</DialogTitle>
                 <DialogDescription>
-                  Choose charts to display permanently on your dashboard for quick access to your most important business insights. You can change your selection anytime.
+                  Choose which charts to display on your dashboard for quick access to your most important business insights. Your selection will persist between sessions.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
@@ -358,10 +386,9 @@ export default function Dashboard() {
                 </Button>
                 <Button 
                   onClick={handleAddCharts} 
-                  disabled={selectedChartsForModal.length === 0}
                   data-testid="button-confirm-add-charts"
                 >
-                  Add {selectedChartsForModal.length > 0 ? `${selectedChartsForModal.length} ` : ''}Chart{selectedChartsForModal.length !== 1 ? 's' : ''}
+                  Update Dashboard ({selectedChartsForModal.length} chart{selectedChartsForModal.length !== 1 ? 's' : ''})
                 </Button>
               </DialogFooter>
             </DialogContent>

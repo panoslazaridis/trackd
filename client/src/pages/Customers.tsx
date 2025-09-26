@@ -140,7 +140,6 @@ export default function Customers() {
           Add Customer
         </Button>
       </div>
-
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -205,7 +204,6 @@ export default function Customers() {
           </CardContent>
         </Card>
       </div>
-
       {/* Search */}
       <Card>
         <CardContent className="pt-6">
@@ -221,7 +219,6 @@ export default function Customers() {
           </div>
         </CardContent>
       </Card>
-
       {/* Customers Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredCustomers.map((customer) => {
@@ -251,12 +248,11 @@ export default function Customers() {
                       </CardDescription>
                     </div>
                   </div>
-                  <Badge className={`text-xs ${statusSettings.color}`}>
+                  <Badge className="whitespace-nowrap inline-flex items-center rounded-md border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 hover-elevate border-transparent shadow-xs text-xs bg-chart-1 text-[#ffffff]">
                     {statusSettings.label}
                   </Badge>
                 </div>
               </CardHeader>
-
               <CardContent className="space-y-4">
                 {/* Contact Info */}
                 <div className="flex gap-4 text-sm text-muted-foreground">
@@ -342,7 +338,6 @@ export default function Customers() {
           );
         })}
       </div>
-
       {filteredCustomers.length === 0 && (
         <Card className="text-center py-12">
           <CardContent>

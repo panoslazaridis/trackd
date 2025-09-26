@@ -235,7 +235,6 @@ export default function Insights() {
           </Button>
         </div>
       </div>
-
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -307,13 +306,12 @@ export default function Insights() {
           </CardContent>
         </Card>
       </div>
-
       {/* Insights Management */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <TabsList className="grid w-full sm:w-auto grid-cols-4">
             <TabsTrigger value="insights">AI Insights</TabsTrigger>
-            <TabsTrigger value="charts">Charts</TabsTrigger>
+            <TabsTrigger value="charts">Advanced Analytics</TabsTrigger>
             <TabsTrigger value="active">Active ({activeInsights.length})</TabsTrigger>
             <TabsTrigger value="completed">Completed ({completedInsights.length})</TabsTrigger>
           </TabsList>
@@ -550,7 +548,6 @@ export default function Insights() {
           </div>
         </TabsContent>
       </Tabs>
-
       {filteredInsights.length === 0 && (
         <Card className="text-center py-12">
           <CardContent>

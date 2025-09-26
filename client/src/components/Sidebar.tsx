@@ -12,6 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
+import trackd_logo from "@assets/trackd logo.png";
+
 interface SidebarProps {
   className?: string;
 }
@@ -38,7 +40,7 @@ export default function Sidebar({ className = "" }: SidebarProps) {
         {!isCollapsed && (
           <div className="flex items-center gap-3">
             <img 
-              src="/attached_assets/trackd logo_1758666477917.png" 
+              src={trackd_logo} 
               alt="trackd logo" 
               className="h-8 w-auto"
             />
@@ -61,7 +63,6 @@ export default function Sidebar({ className = "" }: SidebarProps) {
           {isCollapsed ? <Menu className="w-4 h-4" /> : <X className="w-4 h-4" />}
         </Button>
       </div>
-
       {/* Navigation */}
       <nav className="flex-1 p-2">
         <ul className="space-y-1">
@@ -90,7 +91,6 @@ export default function Sidebar({ className = "" }: SidebarProps) {
           })}
         </ul>
       </nav>
-
       {/* Footer */}
       {!isCollapsed && (
         <div className="p-4 border-t border-sidebar-border">

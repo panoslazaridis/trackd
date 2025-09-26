@@ -311,7 +311,7 @@ export default function Insights() {
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <TabsList className="grid w-full sm:w-auto grid-cols-4">
             <TabsTrigger value="insights">AI Insights</TabsTrigger>
-            <TabsTrigger value="charts">Advanced Analytics</TabsTrigger>
+            <TabsTrigger value="charts">Advanced</TabsTrigger>
             <TabsTrigger value="active">Active ({activeInsights.length})</TabsTrigger>
             <TabsTrigger value="completed">Completed ({completedInsights.length})</TabsTrigger>
           </TabsList>

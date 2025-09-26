@@ -42,7 +42,7 @@ export default function Sidebar({ className = "" }: SidebarProps) {
             <img 
               src={trackd_logo} 
               alt="trackd logo" 
-              className="h-8 w-auto"
+              className="h-12 w-auto"
             />
           </div>
         )}

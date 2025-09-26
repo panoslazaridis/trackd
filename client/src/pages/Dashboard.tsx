@@ -5,6 +5,10 @@ import ChartInsight from "@/components/ChartInsight";
 import AIInsights from "@/components/AIInsights";
 import { useBusinessContext } from "@/contexts/BusinessContext";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
 import { 
   DollarSign, 
   Clock, 
@@ -12,15 +16,16 @@ import {
   TrendingUp, 
   Calendar,
   Target,
-  RefreshCw
+  RefreshCw,
+  Plus,
+  BarChart3,
+  Zap
 } from "lucide-react";
 import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
   LineChart,
   Line,
+  BarChart,
+  Bar,
   ScatterChart,
   Scatter,
   PieChart,
@@ -44,6 +49,7 @@ const revenueData = [
   { month: 'Jun', revenue: 6200, forecast: 6000 },
 ];
 
+// Chart data for selected dashboard charts
 const efficiencyData = [
   { hours: 2, revenue: 180, customer: 'Quick Fix', type: 'Emergency' },
   { hours: 8, revenue: 600, customer: 'Sarah M.', type: 'Renovation' },
@@ -76,12 +82,201 @@ const jobTypeData = [
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
+
+// Available charts that can be added to dashboard
+const availableCharts = [
+  {
+    id: "efficiency",
+    title: "Job Efficiency Matrix",
+    description: "Hours vs Revenue analysis for optimal job identification",
+    icon: Zap,
+    category: "Performance"
+  },
+  {
+    id: "competitor",
+    title: "Competitor Pricing Comparison", 
+    description: "Your rates vs market average comparison",
+    icon: BarChart3,
+    category: "Market Analysis"
+  },
+  {
+    id: "customers",
+    title: "Top Customers by Revenue",
+    description: "Lifetime value breakdown of your best customers",
+    icon: Users,
+    category: "Customer Analytics"
+  },
+  {
+    id: "utilization",
+    title: "Resource Utilization by Job Type",
+    description: "Time and revenue breakdown across service types",
+    icon: BarChart3,
+    category: "Resource Management"
+  }
+];
+
 export default function Dashboard() {
   const { businessType, getCurrentBusiness, userProfile } = useBusinessContext();
   const currentBusiness = getCurrentBusiness();
+  const [selectedChartsForModal, setSelectedChartsForModal] = useState<string[]>([]);
+  const [dashboardCharts, setDashboardCharts] = useState<string[]>([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   
   const handleRefreshData = () => {
     console.log("Refreshing dashboard data...");
+  };
+
+  const handleAddCharts = () => {
+    console.log("Adding charts to dashboard:", selectedChartsForModal);
+    setDashboardCharts(prev => [...prev, ...selectedChartsForModal.filter(id => !prev.includes(id))]);
+    setIsDialogOpen(false);
+    setSelectedChartsForModal([]);
+  };
+
+  const toggleChartSelection = (chartId: string) => {
+    setSelectedChartsForModal(prev => 
+      prev.includes(chartId) 
+        ? prev.filter(id => id !== chartId)
+        : [...prev, chartId]
+    );
+  };
+
+  const renderChart = (chartId: string) => {
+    switch (chartId) {
+      case "efficiency":
+        return (
+          <div key={chartId}>
+            <ChartContainer
+              title="Job Efficiency Matrix"
+              description="Hours vs Revenue - aim for upper left quadrant"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart data={efficiencyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="hours" type="number" domain={[0, 'dataMax + 2']} />
+                  <YAxis dataKey="revenue" type="number" />
+                  <Tooltip 
+                    content={({ active, payload }) => {
+                      if (active && payload && payload[0]) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-card border border-border rounded-lg p-2 shadow-lg">
+                            <p className="font-medium">{data.customer}</p>
+                            <p className="text-sm text-muted-foreground">{data.type}</p>
+                            <p className="text-sm">£{data.revenue} in {data.hours} hours</p>
+                            <p className="text-sm font-medium">£{(data.revenue / data.hours).toFixed(0)}/hr</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Scatter dataKey="revenue" fill="hsl(var(--chart-1))" />
+                </ScatterChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+            <ChartInsight
+              explanation="This scatter plot shows the relationship between time spent and revenue earned for each job, helping you identify your most efficient work patterns."
+              insight="Your emergency jobs (Sarah M.) deliver the highest revenue per hour at £71, while maintenance jobs show lower efficiency at around £30/hour."
+              callToAction="Focus on booking more emergency and installation jobs, which offer better hourly rates than general maintenance work."
+            />
+          </div>
+        );
+
+      case "competitor":
+        return (
+          <div key={chartId}>
+            <ChartContainer
+              title="Competitor Pricing Comparison"
+              description="Your rates vs market average"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={competitorData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="service" angle={-45} textAnchor="end" height={80} />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="yourRate" fill="hsl(var(--chart-1))" name="Your Rate" />
+                  <Bar dataKey="marketAvg" fill="hsl(var(--chart-2))" name="Market Average" />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+            <ChartInsight
+              explanation="This comparison shows how your hourly rates stack up against local competitors across different service types."
+              insight="You're undercharging by £5-10/hour across all services, with emergency plumbing showing the biggest gap at £5/hour below market rate."
+              callToAction="Increase your emergency plumbing rate to £70/hour to match the market - this could add £850 in monthly revenue."
+              onActionClick={() => console.log("Navigate to pricing settings")}
+            />
+          </div>
+        );
+
+      case "customers":
+        return (
+          <div key={chartId}>
+            <ChartContainer
+              title="Top Customers by Revenue"
+              description="Lifetime value of your best customers"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={customerValueData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={({ name, value }) => `${name}: £${value}`}
+                  >
+                    {customerValueData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+            <ChartInsight
+              explanation="This pie chart breaks down your revenue by individual customers, showing which clients contribute most to your business success."
+              insight="Sarah M. represents 24% of your total revenue (£2,400), making her your most valuable customer relationship worth protecting."
+              callToAction="Schedule a check-in call with Sarah M. this month to discuss upcoming projects and ensure you maintain this key relationship."
+              onActionClick={() => console.log("Schedule customer call")}
+            />
+          </div>
+        );
+
+      case "utilization":
+        return (
+          <div key={chartId} className="lg:col-span-2">
+            <ChartContainer
+              title="Resource Utilization by Job Type"
+              description="Time and revenue breakdown"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={jobTypeData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="type" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="hours" fill="hsl(var(--chart-4))" name="Hours Worked" />
+                  <Bar dataKey="revenue" fill="hsl(var(--chart-1))" name="Revenue (£)" />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+            <ChartInsight
+              explanation="This analysis compares how much time you invest in different job types versus the revenue they generate, revealing your most profitable service areas."
+              insight="Emergency work delivers the best ROI with £3,200 revenue from 45 hours (£71/hour), while maintenance jobs offer lower returns at £56/hour."
+              callToAction="Shift 20% of your maintenance hours to emergency services by marketing 24/7 availability - this could boost monthly revenue by £900."
+              onActionClick={() => console.log("Update service marketing")}
+            />
+          </div>
+        );
+
+      default:
+        return null;
+    }
   };
 
   return (
@@ -101,6 +296,76 @@ export default function Dashboard() {
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" data-testid="button-add-chart">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Chart
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>Add Charts to Dashboard</DialogTitle>
+                <DialogDescription>
+                  Choose charts to display permanently on your dashboard for quick access to your most important business insights. You can change your selection anytime.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                {availableCharts.map((chart) => {
+                  const IconComponent = chart.icon;
+                  const isSelected = selectedChartsForModal.includes(chart.id);
+                  return (
+                    <Card 
+                      key={chart.id}
+                      className={`cursor-pointer transition-all hover-elevate ${
+                        isSelected ? 'ring-2 ring-primary bg-primary/5' : ''
+                      }`}
+                      onClick={() => toggleChartSelection(chart.id)}
+                      data-testid={`chart-option-${chart.id}`}
+                    >
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-muted rounded-lg">
+                              <IconComponent className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                            <div>
+                              <CardTitle className="text-sm font-medium">{chart.title}</CardTitle>
+                              <Badge variant="secondary" className="text-xs mt-1">
+                                {chart.category}
+                              </Badge>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                              <span className="text-primary-foreground text-xs">✓</span>
+                            </div>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <CardDescription className="text-sm">
+                          {chart.description}
+                        </CardDescription>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleAddCharts} 
+                  disabled={selectedChartsForModal.length === 0}
+                  data-testid="button-confirm-add-charts"
+                >
+                  Add {selectedChartsForModal.length > 0 ? `${selectedChartsForModal.length} ` : ''}Chart{selectedChartsForModal.length !== 1 ? 's' : ''}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <Button data-testid="button-add-job">
             Add New Job
           </Button>
@@ -170,157 +435,47 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div>
-          {/* Job Efficiency Matrix */}
-          <ChartContainer
-            title="Job Efficiency Matrix"
-            description="Hours vs Revenue - aim for upper left quadrant"
-          >
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart data={efficiencyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="hours" type="number" domain={[0, 'dataMax + 2']} />
-                <YAxis dataKey="revenue" type="number" />
-                <Tooltip 
-                  content={({ active, payload }) => {
-                    if (active && payload && payload[0]) {
-                      const data = payload[0].payload;
-                      return (
-                        <div className="bg-card border border-border rounded-lg p-2 shadow-lg">
-                          <p className="font-medium">{data.customer}</p>
-                          <p className="text-sm text-muted-foreground">{data.type}</p>
-                          <p className="text-sm">£{data.revenue} in {data.hours} hours</p>
-                          <p className="text-sm font-medium">£{(data.revenue / data.hours).toFixed(0)}/hr</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Scatter dataKey="revenue" fill="hsl(var(--chart-1))" />
-              </ScatterChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-          <ChartInsight
-            explanation="This scatter plot shows the relationship between time spent and revenue earned for each job, helping you identify your most efficient work patterns."
-            insight="Your emergency jobs (Sarah M.) deliver the highest revenue per hour at £71, while maintenance jobs show lower efficiency at around £30/hour."
-            callToAction="Focus on booking more emergency and installation jobs, which offer better hourly rates than general maintenance work."
-          />
-        </div>
-
-        <div>
-          {/* Competitor Pricing */}
-          <ChartContainer
-            title="Competitor Pricing Comparison"
-            description="Your rates vs market average"
-          >
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={competitorData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="service" angle={-45} textAnchor="end" height={80} />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="yourRate" fill="hsl(var(--chart-1))" name="Your Rate" />
-                <Bar dataKey="marketAvg" fill="hsl(var(--chart-2))" name="Market Average" />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-          <ChartInsight
-            explanation="This comparison shows how your hourly rates stack up against local competitors across different service types."
-            insight="You're undercharging by £5-10/hour across all services, with emergency plumbing showing the biggest gap at £5/hour below market rate."
-            callToAction="Increase your emergency plumbing rate to £70/hour to match the market - this could add £850 in monthly revenue."
-            onActionClick={() => console.log("Navigate to pricing settings")}
-          />
-        </div>
-
-        <div>
-          {/* Customer Lifetime Value */}
-          <ChartContainer
-            title="Top Customers by Revenue"
-            description="Lifetime value of your best customers"
-          >
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={customerValueData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={({ name, value }) => `${name}: £${value}`}
-                >
-                  {customerValueData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-          <ChartInsight
-            explanation="This pie chart breaks down your revenue by individual customers, showing which clients contribute most to your business success."
-            insight="Sarah M. represents 24% of your total revenue (£2,400), making her your most valuable customer relationship worth protecting."
-            callToAction="Schedule a check-in call with Sarah M. this month to discuss upcoming projects and ensure you maintain this key relationship."
-            onActionClick={() => console.log("Schedule customer call")}
-          />
-        </div>
-
-        <div>
-          {/* Revenue Trends */}
-          <ChartContainer
-            title="Revenue & Forecast Trends"
-            description="Monthly performance with predictions"
-          >
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="revenue" stroke="hsl(var(--chart-1))" name="Actual Revenue" strokeWidth={2} />
-                <Line type="monotone" dataKey="forecast" stroke="hsl(var(--chart-2))" name="Forecast" strokeDasharray="5 5" />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-          <ChartInsight
-            explanation="This trend line tracks your actual monthly revenue against AI-powered forecasts to help you understand business trajectory and plan ahead."
-            insight="Your revenue is trending upward with 48% growth from January (£4,200) to June (£6,200), consistently beating forecasts by 3-5%."
-            callToAction="Based on this growth trend, set a £7,000 revenue target for July and increase marketing efforts to maintain momentum."
-            onActionClick={() => console.log("Set revenue target")}
-          />
-        </div>
-
-        <div className="lg:col-span-2">
-          {/* Resource Utilization */}
-          <ChartContainer
-            title="Resource Utilization by Job Type"
-            description="Time and revenue breakdown"
-          >
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={jobTypeData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="type" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="hours" fill="hsl(var(--chart-4))" name="Hours Worked" />
-                <Bar dataKey="revenue" fill="hsl(var(--chart-1))" name="Revenue (£)" />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-          <ChartInsight
-            explanation="This analysis compares how much time you invest in different job types versus the revenue they generate, revealing your most profitable service areas."
-            insight="Emergency work delivers the best ROI with £3,200 revenue from 45 hours (£71/hour), while maintenance jobs offer lower returns at £56/hour."
-            callToAction="Shift 20% of your maintenance hours to emergency services by marketing 24/7 availability - this could boost monthly revenue by £900."
-            onActionClick={() => console.log("Update service marketing")}
-          />
-        </div>
+      {/* Primary Chart */}
+      <div className="max-w-4xl">
+        {/* Revenue Trends */}
+        <ChartContainer
+          title="Revenue & Forecast Trends"
+          description="Monthly performance with predictions"
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={revenueData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="revenue" stroke="hsl(var(--chart-1))" name="Actual Revenue" strokeWidth={2} />
+              <Line type="monotone" dataKey="forecast" stroke="hsl(var(--chart-2))" name="Forecast" strokeDasharray="5 5" />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+        <ChartInsight
+          explanation="This trend line tracks your actual monthly revenue against AI-powered forecasts to help you understand business trajectory and plan ahead."
+          insight="Your revenue is trending upward with 48% growth from January (£4,200) to June (£6,200), consistently beating forecasts by 3-5%."
+          callToAction="Based on this growth trend, set a £7,000 revenue target for July and increase marketing efforts to maintain momentum."
+          onActionClick={() => console.log("Set revenue target")}
+        />
       </div>
+
+      {/* User Selected Charts */}
+      {dashboardCharts.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-heading font-semibold">Your Dashboard Charts</h2>
+            <p className="text-sm text-muted-foreground">
+              Charts selected for quick access • {dashboardCharts.length} active
+            </p>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {dashboardCharts.map(chartId => renderChart(chartId))}
+          </div>
+        </div>
+      )}
 
       {/* AI Insights Section */}
       <div className="mt-8">

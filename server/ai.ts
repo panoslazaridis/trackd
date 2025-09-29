@@ -1,8 +1,9 @@
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const hasOpenAIKey = Boolean(process.env.OPENAI_API_KEY);
+const openai = hasOpenAIKey
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 interface CompetitorAnalysisRequest {
   businessType: string;
@@ -54,6 +55,23 @@ Respond in JSON format with:
 `;
 
   try {
+    if (!openai) {
+      return {
+        analysis:
+          `Offline mode: No OPENAI_API_KEY set. Mock analysis for ${data.businessType} in ${data.location}. Consider service differentiation, local SEO, and seasonal demand.`,
+        keyInsights: [
+          "Market competition appears moderate; niche specialization can help",
+          "Pricing transparency and reviews drive customer selection",
+          "Local SEO and Google Business Profile are key acquisition channels",
+        ],
+        recommendations: [
+          "Publish case studies and before/after photos",
+          "Offer tiered service packages with clear inclusions",
+          "Request reviews after each completed job",
+        ],
+      };
+    }
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
@@ -120,6 +138,23 @@ Respond in JSON format with:
 `;
 
   try {
+    if (!openai) {
+      return {
+        analysis:
+          `Offline mode: No OPENAI_API_KEY set. Mock pricing analysis for ${data.businessType} in ${data.location} at £${data.currentRate}/hr.`,
+        keyInsights: [
+          "Your current rate is likely within local averages",
+          "Value-based add-ons can justify a premium",
+          "Clear scope definitions reduce scope creep",
+        ],
+        recommendations: [
+          "Introduce minimum call-out fee and after-hours premium",
+          "Bundle materials with transparent markups",
+          "Publish a rate card with common jobs",
+        ],
+      };
+    }
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],

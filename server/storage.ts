@@ -457,7 +457,7 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+// initialized after MemStorage is declared (see end of file)
 
 // Legacy MemStorage for reference - can be removed once database is working
 export class MemStorage implements IStorage {
@@ -539,3 +539,6 @@ export class MemStorage implements IStorage {
     };
   }
 }
+
+// Choose storage implementation now that MemStorage is defined
+export const storage: IStorage = db ? new DatabaseStorage() : new MemStorage();

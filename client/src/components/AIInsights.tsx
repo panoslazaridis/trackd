@@ -142,7 +142,7 @@ export default function AIInsights({
                   </h4>
                   <div className="space-y-2">
                     {data.recommendations.map((rec, index) => (
-                      <Badge key={index} variant="secondary" className="mr-2 mb-2">
+                      <Badge key={index} variant="secondary" className="mr-2 mb-2 whitespace-normal inline-block text-left">
                         {rec}
                       </Badge>
                     ))}

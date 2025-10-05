@@ -1,0 +1,101 @@
+Jobs Table:
+
+This is the main data - every job a user completes
+Must track: customer name, job type, revenue, hours worked, expenses
+Include job status (quoted → booked → in progress → completed)
+Store project duration (quick job, day project, multi-day, etc.)
+Calculate profit margin automatically (revenue minus expenses)
+Date tracking: start date, estimated completion, actual completion
+Optional: customer satisfaction rating, notes field
+
+Customers Table:
+
+Aggregate view of customer relationships
+Track: total revenue from each customer, number of jobs, average job value
+Calculate customer lifetime value
+Store first job date to track relationship length
+Track satisfaction scores and contact preferences
+
+Competitors Table:
+
+Store competitor business info: name, location, services offered
+Critical: pricing structure (hourly rate, emergency callout fee, callout fee)
+Market positioning (budget/mid-market/premium)
+Customer reviews data, strengths/weaknesses
+Flag if they're still active/relevant
+
+Insights Table:
+
+Store generated business insights for each user
+Types: pricing insights, efficiency insights, customer insights, market insights
+Each insight needs: title, description, specific recommendation
+Impact score (1-10) and urgency level (high/medium/low)
+Track if user viewed it or acted on it
+
+Important Database Rules:
+
+Every table (except users) must link back to a user_id
+Use timestamps for created_at and updated_at on all tables
+Create indexes on user_id fields for fast queries
+Enable Row Level Security so users only see their own data
+Set up automatic updated_at triggers
+
+
+Phase 3: Build Analytics SQL Functions
+These are the complex queries that Firebase can't do. Users need these insights:
+Function 1: Dashboard Metrics
+Input: User ID
+Output: JSON object with:
+
+Total revenue (sum of all completed jobs)
+Total expenses
+Total profit (revenue minus expenses)
+Total hours worked
+Average hourly rate (total revenue divided by total hours)
+Profit margin percentage
+Total number of jobs
+Number of completed jobs
+
+Why: This powers the main dashboard overview card.
+Function 2: Efficiency Matrix
+Input: User ID
+Output: List of all completed jobs with:
+
+Job ID, customer name, job type
+Hours worked, revenue earned
+Calculated hourly rate for each job
+
+Why: This creates a scatter plot showing which jobs are profitable (high revenue, low hours) vs time-wasters (low revenue, high hours).
+Function 3: Customer Value Ranking
+Input: User ID
+Output: Ranked list of customers with:
+
+Customer name
+Total jobs from this customer
+Lifetime revenue from this customer
+Average job value
+Last job date
+Value quartile (top 25%, second 25%, etc.)
+
+Why: Shows which customers are worth 3x more than others so they can prioritize relationships.
+Function 4: Seasonal Trends
+Input: User ID
+Output: Monthly breakdown for last 12 months:
+
+Month (YYYY-MM format)
+Total revenue that month
+Total jobs that month
+Average hourly rate that month
+
+Why: Identifies busy seasons (January is best for emergency calls, etc.).
+Function 5: Competitor Price Comparison
+Input: User ID
+Output: List showing:
+
+Competitor name
+Their hourly rate
+Their emergency callout fee
+User's average hourly rate (calculated from jobs)
+Price difference (how much under/over market they are)
+
+Why: The key differentiator - shows exactly how much they're undercharging vs competitors.

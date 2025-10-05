@@ -136,12 +136,168 @@ export const insights = pgTable("insights", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// AI Requests table - track all AI API calls for usage monitoring
+export const aiRequests = pgTable("ai_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Entitlement tracking
+  entitlementTier: text("entitlement_tier").notNull(), // free, basic, professional, premium, enterprise
+  
+  // Request details
+  requestType: text("request_type").notNull(), // competitor_analysis, pricing_optimization, insight_generation, job_parsing
+  endpoint: text("endpoint"), // API endpoint called
+  
+  // AI model information
+  model: text("model").notNull(), // gpt-4, gpt-3.5-turbo, etc.
+  provider: text("provider").notNull().default("openai"), // openai, anthropic, etc.
+  
+  // Token usage
+  tokensInput: integer("tokens_input").default(0),
+  tokensOutput: integer("tokens_output").default(0),
+  tokensTotal: integer("tokens_total").default(0),
+  
+  // Cost tracking
+  costEstimateGbp: decimal("cost_estimate_gbp", { precision: 10, scale: 6 }), // in £
+  
+  // Performance metrics
+  responseTimeMs: integer("response_time_ms"), // milliseconds
+  
+  // Success/failure tracking
+  success: boolean("success").notNull().default(true),
+  errorMessage: text("error_message"),
+  errorCode: text("error_code"),
+  
+  // Request/response metadata
+  promptLength: integer("prompt_length"),
+  responseLength: integer("response_length"),
+  temperature: decimal("temperature", { precision: 3, scale: 2 }),
+  maxTokens: integer("max_tokens"),
+  
+  // Context
+  relatedJobId: varchar("related_job_id").references(() => jobs.id, { onDelete: "set null" }),
+  relatedCompetitorId: varchar("related_competitor_id").references(() => competitors.id, { onDelete: "set null" }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User Subscriptions table - comprehensive subscription management
+export const userSubscriptions = pgTable("user_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Stripe integration
+  stripeCustomerId: text("stripe_customer_id").unique(),
+  stripeSubscriptionId: text("stripe_subscription_id").unique(),
+  
+  // Subscription tier & status
+  subscriptionTier: text("subscription_tier").notNull().default("free"), // free, basic, professional, premium, enterprise
+  subscriptionStatus: text("subscription_status").notNull().default("active"), // active, trialing, past_due, canceled, incomplete, paused
+  
+  // Pricing
+  monthlyPriceGbp: decimal("monthly_price_gbp", { precision: 10, scale: 2 }).default("0"),
+  annualPriceGbp: decimal("annual_price_gbp", { precision: 10, scale: 2 }),
+  billingCycle: text("billing_cycle").default("monthly"), // monthly, annual
+  currency: text("currency").default("GBP"),
+  
+  // Trial management
+  trialActive: boolean("trial_active").default(false),
+  trialStartDate: timestamp("trial_start_date"),
+  trialEndDate: timestamp("trial_end_date"),
+  trialConvertedToPaid: boolean("trial_converted_to_paid").default(false),
+  trialConversionDate: timestamp("trial_conversion_date"),
+  
+  // Discounts
+  activeDiscountCode: text("active_discount_code"),
+  discountPercentage: integer("discount_percentage"),
+  discountAmountGbp: decimal("discount_amount_gbp", { precision: 10, scale: 2 }),
+  discountValidUntil: timestamp("discount_valid_until"),
+  lifetimeDiscount: boolean("lifetime_discount").default(false),
+  
+  // Billing dates
+  subscriptionStartDate: timestamp("subscription_start_date").defaultNow(),
+  currentPeriodStart: timestamp("current_period_start"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  nextBillingDate: timestamp("next_billing_date"),
+  lastPaymentDate: timestamp("last_payment_date"),
+  lastPaymentAmountGbp: decimal("last_payment_amount_gbp", { precision: 10, scale: 2 }),
+  
+  // Cancellation
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
+  canceledAt: timestamp("canceled_at"),
+  cancellationReason: text("cancellation_reason"),
+  
+  // Feature entitlements
+  maxJobsPerMonth: integer("max_jobs_per_month"), // NULL = unlimited
+  maxCompetitors: integer("max_competitors").default(3),
+  aiParsingCreditsMonthly: integer("ai_parsing_credits_monthly").default(10),
+  
+  // Feature flags
+  featureAdvancedAnalytics: boolean("feature_advanced_analytics").default(false),
+  featureCompetitorAlerts: boolean("feature_competitor_alerts").default(false),
+  featureExportReports: boolean("feature_export_reports").default(false),
+  featureApiAccess: boolean("feature_api_access").default(false),
+  featureWhatsappIntegration: boolean("feature_whatsapp_integration").default(false),
+  featureWhiteLabel: boolean("feature_white_label").default(false),
+  featureMultiUser: boolean("feature_multi_user").default(false),
+  
+  // Usage tracking (current billing period)
+  usageJobsCreatedThisMonth: integer("usage_jobs_created_this_month").default(0),
+  usageAiParsingThisMonth: integer("usage_ai_parsing_this_month").default(0),
+  usageReportsExportedThisMonth: integer("usage_reports_exported_this_month").default(0),
+  usagePeriodStart: timestamp("usage_period_start"),
+  
+  // Revenue metrics
+  totalRevenueAllTime: decimal("total_revenue_all_time", { precision: 10, scale: 2 }).default("0"),
+  monthsAsCustomer: integer("months_as_customer").default(0),
+  
+  // Acquisition tracking
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  referralCode: text("referral_code"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Subscription Events table - audit trail for MRR/churn analysis
+export const subscriptionEvents = pgTable("subscription_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  subscriptionId: varchar("subscription_id").notNull().references(() => userSubscriptions.id, { onDelete: "cascade" }),
+  
+  // Event type
+  eventType: text("event_type").notNull(), // subscription_created, trial_started, trial_converted, trial_expired, upgraded, downgraded, canceled, reactivated, payment_succeeded, payment_failed, discount_applied, discount_removed, paused, resumed
+  
+  // State changes
+  previousTier: text("previous_tier"),
+  newTier: text("new_tier"),
+  previousMonthlyPrice: decimal("previous_monthly_price", { precision: 10, scale: 2 }),
+  newMonthlyPrice: decimal("new_monthly_price", { precision: 10, scale: 2 }),
+  
+  // MRR impact
+  mrrChange: decimal("mrr_change", { precision: 10, scale: 2 }), // Monthly Recurring Revenue change
+  isExpansion: boolean("is_expansion").default(false), // upgrade
+  isContraction: boolean("is_contraction").default(false), // downgrade or churn
+  
+  // Context
+  stripeEventId: text("stripe_event_id"),
+  triggeredBy: text("triggered_by"), // user, admin, stripe, system
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   jobs: many(jobs),
   customers: many(customers),
   competitors: many(competitors),
   insights: many(insights),
+  aiRequests: many(aiRequests),
+  subscription: one(userSubscriptions),
+  subscriptionEvents: many(subscriptionEvents),
 }));
 
 export const jobsRelations = relations(jobs, ({ one }) => ({
@@ -174,6 +330,40 @@ export const insightsRelations = relations(insights, ({ one }) => ({
   user: one(users, {
     fields: [insights.userId],
     references: [users.id],
+  }),
+}));
+
+export const aiRequestsRelations = relations(aiRequests, ({ one }) => ({
+  user: one(users, {
+    fields: [aiRequests.userId],
+    references: [users.id],
+  }),
+  relatedJob: one(jobs, {
+    fields: [aiRequests.relatedJobId],
+    references: [jobs.id],
+  }),
+  relatedCompetitor: one(competitors, {
+    fields: [aiRequests.relatedCompetitorId],
+    references: [competitors.id],
+  }),
+}));
+
+export const userSubscriptionsRelations = relations(userSubscriptions, ({ one, many }) => ({
+  user: one(users, {
+    fields: [userSubscriptions.userId],
+    references: [users.id],
+  }),
+  events: many(subscriptionEvents),
+}));
+
+export const subscriptionEventsRelations = relations(subscriptionEvents, ({ one }) => ({
+  user: one(users, {
+    fields: [subscriptionEvents.userId],
+    references: [users.id],
+  }),
+  subscription: one(userSubscriptions, {
+    fields: [subscriptionEvents.subscriptionId],
+    references: [userSubscriptions.id],
   }),
 }));
 
@@ -226,6 +416,24 @@ export const insertInsightSchema = createInsertSchema(insights).omit({
   updatedAt: true,
 });
 
+export const insertAiRequestSchema = createInsertSchema(aiRequests).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+});
+
+export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSubscriptionEventSchema = createInsertSchema(subscriptionEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -238,3 +446,9 @@ export type Competitor = typeof competitors.$inferSelect;
 export type InsertCompetitor = z.infer<typeof insertCompetitorSchema>;
 export type Insight = typeof insights.$inferSelect;
 export type InsertInsight = z.infer<typeof insertInsightSchema>;
+export type AiRequest = typeof aiRequests.$inferSelect;
+export type InsertAiRequest = z.infer<typeof insertAiRequestSchema>;
+export type UserSubscription = typeof userSubscriptions.$inferSelect;
+export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema>;
+export type SubscriptionEvent = typeof subscriptionEvents.$inferSelect;
+export type InsertSubscriptionEvent = z.infer<typeof insertSubscriptionEventSchema>;

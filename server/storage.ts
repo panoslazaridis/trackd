@@ -45,15 +45,52 @@ export interface IStorage {
   updateInsightStatus(id: string, userId: string, status: "active" | "completed" | "dismissed"): Promise<Insight>;
   deleteInsight(id: string, userId: string): Promise<void>;
   
-  // Dashboard aggregations
+  // Analytics functions
   getDashboardMetrics(userId: string): Promise<{
     totalRevenue: number;
+    totalExpenses: number;
+    totalProfit: number;
     totalHours: number;
-    activeCustomers: number;
     averageHourlyRate: number;
+    profitMargin: number;
+    totalJobs: number;
     completedJobs: number;
-    monthlyRevenue: number;
   }>;
+  
+  getEfficiencyMatrix(userId: string): Promise<Array<{
+    id: string;
+    customerName: string;
+    jobType: string;
+    hours: number;
+    revenue: number;
+    hourlyRate: number;
+  }>>;
+  
+  getCustomerValueRanking(userId: string): Promise<Array<{
+    id: string;
+    customerName: string;
+    totalJobs: number;
+    lifetimeRevenue: number;
+    averageJobValue: number;
+    lastJobDate: Date | null;
+    valueQuartile: number;
+  }>>;
+  
+  getSeasonalTrends(userId: string): Promise<Array<{
+    month: string;
+    totalRevenue: number;
+    totalJobs: number;
+    averageHourlyRate: number;
+  }>>;
+  
+  getCompetitorComparison(userId: string): Promise<Array<{
+    id: string;
+    competitorName: string;
+    theirHourlyRate: number | null;
+    theirEmergencyFee: number | null;
+    userAverageRate: number;
+    priceDifference: number;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -86,10 +123,15 @@ export class DatabaseStorage implements IStorage {
         phone: profile.phone,
         address: profile.address,
         serviceArea: profile.serviceArea,
+        serviceAreaRadius: profile.serviceAreaRadius,
         businessType: profile.businessType,
-        specializations: profile.specializations || [],
+        specializations: profile.specializations as any,
         targetHourlyRate: profile.targetHourlyRate,
         location: profile.location,
+        teamSize: profile.teamSize,
+        yearsInBusiness: profile.yearsInBusiness,
+        subscriptionTier: profile.subscriptionTier,
+        onboardingStatus: profile.onboardingStatus,
         monthlyRevenueGoal: profile.monthlyRevenueGoal,
         weeklyHoursTarget: profile.weeklyHoursTarget,
         notifications: profile.notifications || {
@@ -132,12 +174,19 @@ export class DatabaseStorage implements IStorage {
         jobType: job.jobType,
         description: job.description,
         revenue: job.revenue,
+        expenses: job.expenses,
         hours: job.hours,
         hourlyRate: job.hourlyRate,
+        profitMargin: job.profitMargin,
         status: job.status,
+        projectDuration: job.projectDuration,
         date: job.date,
+        startDate: job.startDate,
+        estimatedCompletionDate: job.estimatedCompletionDate,
+        actualCompletionDate: job.actualCompletionDate,
         location: job.location,
-        materials: job.materials || [],
+        satisfactionRating: job.satisfactionRating,
+        materials: job.materials as any,
         notes: job.notes
       })
       .returning();
@@ -159,12 +208,19 @@ export class DatabaseStorage implements IStorage {
         jobType: job.jobType,
         description: job.description,
         revenue: job.revenue,
+        expenses: job.expenses,
         hours: job.hours,
         hourlyRate: job.hourlyRate,
+        profitMargin: job.profitMargin,
         status: job.status,
+        projectDuration: job.projectDuration,
         date: job.date,
+        startDate: job.startDate,
+        estimatedCompletionDate: job.estimatedCompletionDate,
+        actualCompletionDate: job.actualCompletionDate,
         location: job.location,
-        materials: job.materials || [],
+        satisfactionRating: job.satisfactionRating,
+        materials: job.materials as any,
         notes: job.notes,
         updatedAt: new Date()
       })
@@ -220,10 +276,13 @@ export class DatabaseStorage implements IStorage {
         totalJobs: customer.totalJobs,
         totalRevenue: customer.totalRevenue,
         averageJobValue: customer.averageJobValue,
+        lifetimeValue: customer.lifetimeValue,
+        firstJobDate: customer.firstJobDate,
         lastJobDate: customer.lastJobDate,
         satisfactionScore: customer.satisfactionScore,
+        contactPreference: customer.contactPreference,
         status: customer.status,
-        preferredServices: customer.preferredServices || [],
+        preferredServices: customer.preferredServices as any,
         notes: customer.notes
       })
       .returning();
@@ -241,10 +300,13 @@ export class DatabaseStorage implements IStorage {
         totalJobs: customer.totalJobs,
         totalRevenue: customer.totalRevenue,
         averageJobValue: customer.averageJobValue,
+        lifetimeValue: customer.lifetimeValue,
+        firstJobDate: customer.firstJobDate,
         lastJobDate: customer.lastJobDate,
         satisfactionScore: customer.satisfactionScore,
+        contactPreference: customer.contactPreference,
         status: customer.status,
-        preferredServices: customer.preferredServices || [],
+        preferredServices: customer.preferredServices as any,
         notes: customer.notes,
         updatedAt: new Date()
       })
@@ -283,14 +345,19 @@ export class DatabaseStorage implements IStorage {
         userId,
         name: competitor.name,
         location: competitor.location,
-        services: competitor.services,
+        services: competitor.services as any,
+        hourlyRate: competitor.hourlyRate,
         averageRate: competitor.averageRate,
+        emergencyCalloutFee: competitor.emergencyCalloutFee,
+        calloutFee: competitor.calloutFee,
+        marketPositioning: competitor.marketPositioning,
         phone: competitor.phone,
         website: competitor.website,
         rating: competitor.rating,
         reviewCount: competitor.reviewCount,
-        strengths: competitor.strengths || [],
-        weaknesses: competitor.weaknesses || [],
+        isActive: competitor.isActive,
+        strengths: competitor.strengths as any,
+        weaknesses: competitor.weaknesses as any,
         notes: competitor.notes
       })
       .returning();
@@ -303,14 +370,19 @@ export class DatabaseStorage implements IStorage {
       .set({
         name: competitor.name,
         location: competitor.location,
-        services: competitor.services,
+        services: competitor.services as any,
+        hourlyRate: competitor.hourlyRate,
         averageRate: competitor.averageRate,
+        emergencyCalloutFee: competitor.emergencyCalloutFee,
+        calloutFee: competitor.calloutFee,
+        marketPositioning: competitor.marketPositioning,
         phone: competitor.phone,
         website: competitor.website,
         rating: competitor.rating,
         reviewCount: competitor.reviewCount,
-        strengths: competitor.strengths || [],
-        weaknesses: competitor.weaknesses || [],
+        isActive: competitor.isActive,
+        strengths: competitor.strengths as any,
+        weaknesses: competitor.weaknesses as any,
         notes: competitor.notes,
         updatedAt: new Date()
       })
@@ -369,58 +441,214 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(insights.id, id), eq(insights.userId, userId)));
   }
 
-  // Dashboard metrics aggregation
+  // Analytics Function 1: Dashboard Metrics
   async getDashboardMetrics(userId: string): Promise<{
     totalRevenue: number;
+    totalExpenses: number;
+    totalProfit: number;
     totalHours: number;
-    activeCustomers: number;
     averageHourlyRate: number;
+    profitMargin: number;
+    totalJobs: number;
     completedJobs: number;
-    monthlyRevenue: number;
   }> {
-    // Get job aggregations
-    const [jobStats] = await db
+    const [stats] = await db
       .select({
         totalRevenue: sql<number>`COALESCE(SUM(CAST(${jobs.revenue} AS DECIMAL)), 0)`,
+        totalExpenses: sql<number>`COALESCE(SUM(CAST(${jobs.expenses} AS DECIMAL)), 0)`,
         totalHours: sql<number>`COALESCE(SUM(CAST(${jobs.hours} AS DECIMAL)), 0)`,
+        totalJobs: sql<number>`COUNT(*)`,
         completedJobs: sql<number>`COUNT(CASE WHEN ${jobs.status} = 'Completed' THEN 1 END)`,
-        avgRate: sql<number>`COALESCE(AVG(CAST(${jobs.hourlyRate} AS DECIMAL)), 0)`,
       })
       .from(jobs)
       .where(eq(jobs.userId, userId));
     
-    // Get current month revenue
-    const currentMonth = new Date();
-    currentMonth.setDate(1);
-    const [monthlyStats] = await db
+    const totalRevenue = Number(stats?.totalRevenue || 0);
+    const totalExpenses = Number(stats?.totalExpenses || 0);
+    const totalProfit = totalRevenue - totalExpenses;
+    const totalHours = Number(stats?.totalHours || 0);
+    const averageHourlyRate = totalHours > 0 ? totalRevenue / totalHours : 0;
+    const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+    
+    return {
+      totalRevenue,
+      totalExpenses,
+      totalProfit,
+      totalHours,
+      averageHourlyRate,
+      profitMargin,
+      totalJobs: Number(stats?.totalJobs || 0),
+      completedJobs: Number(stats?.completedJobs || 0),
+    };
+  }
+
+  // Analytics Function 2: Efficiency Matrix
+  async getEfficiencyMatrix(userId: string): Promise<Array<{
+    id: string;
+    customerName: string;
+    jobType: string;
+    hours: number;
+    revenue: number;
+    hourlyRate: number;
+  }>> {
+    const result = await db
       .select({
-        monthlyRevenue: sql<number>`COALESCE(SUM(CAST(${jobs.revenue} AS DECIMAL)), 0)`,
+        id: jobs.id,
+        customerName: jobs.customerName,
+        jobType: jobs.jobType,
+        hours: jobs.hours,
+        revenue: jobs.revenue,
+        hourlyRate: jobs.hourlyRate,
       })
       .from(jobs)
       .where(and(
         eq(jobs.userId, userId),
-        sql`${jobs.date} >= ${currentMonth.toISOString()}`
-      ));
+        eq(jobs.status, "Completed")
+      ))
+      .orderBy(desc(jobs.date));
     
-    // Get active customers count
-    const [customerStats] = await db
+    return result.map(job => ({
+      id: job.id,
+      customerName: job.customerName,
+      jobType: job.jobType,
+      hours: Number(job.hours),
+      revenue: Number(job.revenue),
+      hourlyRate: Number(job.hourlyRate),
+    }));
+  }
+
+  // Analytics Function 3: Customer Value Ranking
+  async getCustomerValueRanking(userId: string): Promise<Array<{
+    id: string;
+    customerName: string;
+    totalJobs: number;
+    lifetimeRevenue: number;
+    averageJobValue: number;
+    lastJobDate: Date | null;
+    valueQuartile: number;
+  }>> {
+    const customerStats = await db
       .select({
-        activeCustomers: sql<number>`COUNT(*)`,
+        customerId: jobs.customerId,
+        customerName: jobs.customerName,
+        totalJobs: sql<number>`COUNT(*)`,
+        lifetimeRevenue: sql<number>`COALESCE(SUM(CAST(${jobs.revenue} AS DECIMAL)), 0)`,
+        lastJobDate: sql<Date>`MAX(${jobs.date})`,
       })
-      .from(customers)
+      .from(jobs)
+      .where(eq(jobs.userId, userId))
+      .groupBy(jobs.customerId, jobs.customerName)
+      .orderBy(desc(sql`COALESCE(SUM(CAST(${jobs.revenue} AS DECIMAL)), 0)`));
+    
+    const totalCustomers = customerStats.length;
+    
+    return customerStats.map((customer, index) => {
+      const lifetimeRevenue = Number(customer.lifetimeRevenue);
+      const totalJobs = Number(customer.totalJobs);
+      const averageJobValue = totalJobs > 0 ? lifetimeRevenue / totalJobs : 0;
+      const quartilePosition = (index + 1) / totalCustomers;
+      let valueQuartile = 4;
+      if (quartilePosition <= 0.25) valueQuartile = 1;
+      else if (quartilePosition <= 0.50) valueQuartile = 2;
+      else if (quartilePosition <= 0.75) valueQuartile = 3;
+      
+      return {
+        id: customer.customerId || '',
+        customerName: customer.customerName,
+        totalJobs,
+        lifetimeRevenue,
+        averageJobValue,
+        lastJobDate: customer.lastJobDate,
+        valueQuartile,
+      };
+    });
+  }
+
+  // Analytics Function 4: Seasonal Trends
+  async getSeasonalTrends(userId: string): Promise<Array<{
+    month: string;
+    totalRevenue: number;
+    totalJobs: number;
+    averageHourlyRate: number;
+  }>> {
+    const trends = await db
+      .select({
+        month: sql<string>`TO_CHAR(${jobs.date}, 'YYYY-MM')`,
+        totalRevenue: sql<number>`COALESCE(SUM(CAST(${jobs.revenue} AS DECIMAL)), 0)`,
+        totalJobs: sql<number>`COUNT(*)`,
+        totalHours: sql<number>`COALESCE(SUM(CAST(${jobs.hours} AS DECIMAL)), 0)`,
+      })
+      .from(jobs)
       .where(and(
-        eq(customers.userId, userId),
-        eq(customers.status, "Active")
+        eq(jobs.userId, userId),
+        sql`${jobs.date} >= NOW() - INTERVAL '12 months'`
+      ))
+      .groupBy(sql`TO_CHAR(${jobs.date}, 'YYYY-MM')`)
+      .orderBy(sql`TO_CHAR(${jobs.date}, 'YYYY-MM')`);
+    
+    return trends.map(trend => {
+      const totalRevenue = Number(trend.totalRevenue);
+      const totalHours = Number(trend.totalHours);
+      const averageHourlyRate = totalHours > 0 ? totalRevenue / totalHours : 0;
+      
+      return {
+        month: trend.month,
+        totalRevenue,
+        totalJobs: Number(trend.totalJobs),
+        averageHourlyRate,
+      };
+    });
+  }
+
+  // Analytics Function 5: Competitor Price Comparison
+  async getCompetitorComparison(userId: string): Promise<Array<{
+    id: string;
+    competitorName: string;
+    theirHourlyRate: number | null;
+    theirEmergencyFee: number | null;
+    userAverageRate: number;
+    priceDifference: number;
+  }>> {
+    // Get user's average hourly rate
+    const [userStats] = await db
+      .select({
+        avgRate: sql<number>`COALESCE(AVG(CAST(${jobs.hourlyRate} AS DECIMAL)), 0)`,
+      })
+      .from(jobs)
+      .where(and(
+        eq(jobs.userId, userId),
+        eq(jobs.status, "Completed")
       ));
     
-    return {
-      totalRevenue: Number(jobStats?.totalRevenue || 0),
-      totalHours: Number(jobStats?.totalHours || 0),
-      activeCustomers: Number(customerStats?.activeCustomers || 0),
-      averageHourlyRate: Number(jobStats?.avgRate || 0),
-      completedJobs: Number(jobStats?.completedJobs || 0),
-      monthlyRevenue: Number(monthlyStats?.monthlyRevenue || 0),
-    };
+    const userAverageRate = Number(userStats?.avgRate || 0);
+    
+    // Get all active competitors
+    const competitorList = await db
+      .select({
+        id: competitors.id,
+        name: competitors.name,
+        hourlyRate: competitors.hourlyRate,
+        emergencyCalloutFee: competitors.emergencyCalloutFee,
+      })
+      .from(competitors)
+      .where(and(
+        eq(competitors.userId, userId),
+        eq(competitors.isActive, true)
+      ));
+    
+    return competitorList.map(competitor => {
+      const theirRate = competitor.hourlyRate ? Number(competitor.hourlyRate) : null;
+      const priceDifference = theirRate ? userAverageRate - theirRate : 0;
+      
+      return {
+        id: competitor.id,
+        competitorName: competitor.name,
+        theirHourlyRate: theirRate,
+        theirEmergencyFee: competitor.emergencyCalloutFee ? Number(competitor.emergencyCalloutFee) : null,
+        userAverageRate,
+        priceDifference,
+      };
+    });
   }
 
   // Helper method to update customer statistics
@@ -488,10 +716,15 @@ export class MemStorage implements IStorage {
       phone: null,
       address: null,
       serviceArea: null,
+      serviceAreaRadius: null,
       businessType: null,
       specializations: [],
       targetHourlyRate: null,
       location: null,
+      teamSize: 1,
+      yearsInBusiness: null,
+      subscriptionTier: "free",
+      onboardingStatus: "incomplete",
       monthlyRevenueGoal: null,
       weeklyHoursTarget: null,
       notifications: {
@@ -531,11 +764,17 @@ export class MemStorage implements IStorage {
   async getDashboardMetrics(): Promise<any> { 
     return {
       totalRevenue: 0,
+      totalExpenses: 0,
+      totalProfit: 0,
       totalHours: 0,
-      activeCustomers: 0,
       averageHourlyRate: 0,
+      profitMargin: 0,
+      totalJobs: 0,
       completedJobs: 0,
-      monthlyRevenue: 0,
     };
   }
+  async getEfficiencyMatrix(): Promise<any[]> { return []; }
+  async getCustomerValueRanking(): Promise<any[]> { return []; }
+  async getSeasonalTrends(): Promise<any[]> { return []; }
+  async getCompetitorComparison(): Promise<any[]> { return []; }
 }

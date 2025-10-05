@@ -1,0 +1,301 @@
+Design the Database Schema
+Core Tables Needed:
+Users Table:
+
+Store user profile info: email, business name, business type, location
+Track their service area radius (how far they travel for jobs)
+Store team size, years in business, specializations
+Track subscription tier (free/paid) and onboarding status
+Every user needs a unique ID that links to all their data
+
+Jobs Table:
+
+This is the main data - every job a user completes
+Must track: customer name, job type, revenue, hours worked, expenses
+Include job status (quoted → booked → in progress → completed)
+Store project duration (quick job, day project, multi-day, etc.)
+Calculate profit margin automatically (revenue minus expenses)
+Date tracking: start date, estimated completion, actual completion
+Optional: customer satisfaction rating, notes field
+
+Customers Table:
+
+Aggregate view of customer relationships
+Track: total revenue from each customer, number of jobs, average job value
+Calculate customer lifetime value
+Store first job date to track relationship length
+Track satisfaction scores and contact preferences
+
+Competitors Table:
+
+Store competitor business info: name, location, services offered
+Critical: pricing structure (hourly rate, emergency callout fee, callout fee)
+Market positioning (budget/mid-market/premium)
+Customer reviews data, strengths/weaknesses
+Flag if they're still active/relevant
+
+Insights Table:
+
+Store generated business insights for each user
+Types: pricing insights, efficiency insights, customer insights, market insights
+Each insight needs: title, description, specific recommendation
+Impact score (1-10) and urgency level (high/medium/low)
+Track if user viewed it or acted on it
+
+Important Database Rules:
+
+Every table (except users) must link back to a user_id
+Use timestamps for created_at and updated_at on all tables
+Create indexes on user_id fields for fast queries
+Enable Row Level Security so users only see their own data
+Set up automatic updated_at triggers
+
+
+Phase 3: Build Analytics SQL Functions
+These are the complex queries that Firebase can't do. Users need these insights:
+Function 1: Dashboard Metrics
+Input: User ID
+Output: JSON object with:
+
+Total revenue (sum of all completed jobs)
+Total expenses
+Total profit (revenue minus expenses)
+Total hours worked
+Average hourly rate (total revenue divided by total hours)
+Profit margin percentage
+Total number of jobs
+Number of completed jobs
+
+Why: This powers the main dashboard overview card.
+Function 2: Efficiency Matrix
+Input: User ID
+Output: List of all completed jobs with:
+
+Job ID, customer name, job type
+Hours worked, revenue earned
+Calculated hourly rate for each job
+
+Why: This creates a scatter plot showing which jobs are profitable (high revenue, low hours) vs time-wasters (low revenue, high hours).
+Function 3: Customer Value Ranking
+Input: User ID
+Output: Ranked list of customers with:
+
+Customer name
+Total jobs from this customer
+Lifetime revenue from this customer
+Average job value
+Last job date
+Value quartile (top 25%, second 25%, etc.)
+
+Why: Shows which customers are worth 3x more than others so they can prioritize relationships.
+Function 4: Seasonal Trends
+Input: User ID
+Output: Monthly breakdown for last 12 months:
+
+Month (YYYY-MM format)
+Total revenue that month
+Total jobs that month
+Average hourly rate that month
+
+Why: Identifies busy seasons (January is best for emergency calls, etc.).
+Function 5: Competitor Price Comparison
+Input: User ID
+Output: List showing:
+
+Competitor name
+Their hourly rate
+Their emergency callout fee
+User's average hourly rate (calculated from jobs)
+Price difference (how much under/over market they are)
+
+Why: The key differentiator - shows exactly how much they're undercharging vs competitors.
+
+Phase 4: Create REST API in Replit
+What to Build:
+Set up an Express server that connects to your Supabase database and exposes these endpoints:
+Health Check:
+
+GET /health - just returns OK status to verify server is running
+
+Job Management:
+
+GET /api/jobs/:userId - fetch all jobs for a user, sorted by newest first
+POST /api/jobs - create a new job (validate required fields)
+PUT /api/jobs/:id - update an existing job
+DELETE /api/jobs/:id - remove a job
+
+Analytics Endpoints:
+
+GET /api/analytics/dashboard/:userId - calls the dashboard metrics function
+GET /api/analytics/efficiency/:userId - calls the efficiency matrix function
+GET /api/analytics/customers/:userId - calls the customer value ranking function
+GET /api/analytics/trends/:userId - calls the seasonal trends function
+GET /api/analytics/competitors/:userId - calls the competitor comparison function
+
+Customer Management:
+
+GET /api/customers/:userId - list all customers
+POST /api/customers - add new customer
+PUT /api/customers/:id - update customer info
+
+Competitor Management:
+
+GET /api/competitors/:userId - list competitors
+POST /api/competitors - add competitor
+PUT /api/competitors/:id - update competitor data
+
+Important API Requirements:
+
+Enable CORS so the React frontend can call it
+Use environment variables for Supabase credentials (never hardcode)
+Return consistent JSON format: { success: true/false, data: {}, error: "" }
+Handle errors gracefully with proper HTTP status codes
+Log requests for debugging
+
+
+Phase 5: Security Configuration
+Row Level Security Policies:
+Set up Supabase RLS so:
+
+Users can only SELECT their own data (where user_id = authenticated user id)
+Users can only INSERT data with their own user_id
+Users can only UPDATE/DELETE their own records
+No one can access other users' data, ever
+
+API Security:
+
+Validate that user_id in requests matches the authenticated user
+Sanitize inputs to prevent SQL injection
+Use Supabase's service role key only for admin operations (analytics functions)
+Use anon key for regular user operations
+
+
+Phase 6: Testing & Validation
+Create Test Data:
+Insert sample records to verify everything works:
+
+Create 3-5 test users with different business types
+Add 10-20 jobs per user with varied revenue/hours
+Add 3-5 competitors with different pricing
+Generate insights for each user
+
+Test Each Analytics Function:
+
+Call dashboard metrics - verify calculations are correct
+Check efficiency matrix - ensure hourly rates calculate properly
+Verify customer rankings - top customers should appear first
+Test seasonal trends - months should aggregate correctly
+Competitor comparison - price differences should be accurate
+
+API Testing:
+
+Test each endpoint with valid data
+Test with invalid data (should return errors)
+Verify CORS works from frontend domain
+Check response times (should be under 500ms)
+
+
+Phase 7: Prepare for Frontend Integration
+Document the API:
+Create a simple API reference showing:
+
+All available endpoints
+Required parameters for each
+Example request/response for each endpoint
+Expected data formats
+
+Environment Variables Needed:
+List what the frontend will need:
+
+Supabase URL
+Supabase anon key
+API base URL (the Replit deployment URL)
+
+Set Up for GitHub:
+
+Initialize git repository
+Create .gitignore (exclude node_modules, .env)
+Make initial commit with all backend code
+Push to GitHub so Cursor can pull it
+
+
+What the Frontend Will Do (For Context):
+The React app built in Cursor will:
+
+Connect to Supabase directly for authentication (login/signup)
+Call your Replit API endpoints to get analytics data
+Display interactive charts using the data from your SQL functions
+Show prescriptive insights like "You're undercharging by £15/hour - increase rates to £85"
+
+Your job is to make sure the API returns clean, fast data that powers these insights.
+
+Success Criteria:
+You know you're done when:
+
+✅ Database schema is created with all 5 tables
+✅ All 5 analytics SQL functions return correct data
+✅ REST API has all endpoints working
+✅ Row Level Security prevents cross-user data access
+✅ Test data proves all calculations are accurate
+✅ API is deployed on Replit with public URL
+✅ Code is pushed to GitHub
+✅ Documentation exists for frontend integration
+
+
+Key Technical Decisions for You to Make:
+
+Database Types: Choose appropriate data types for currency (DECIMAL vs NUMERIC), dates (DATE vs TIMESTAMP), and text fields
+Indexing Strategy: Decide which columns need indexes beyond the basics (consider query frequency)
+Error Handling: Design how to handle database errors, validation errors, and edge cases
+Data Validation: Decide what validation happens in the database vs API layer
+Performance Optimization: Use database functions vs API-side calculations (hint: database is faster)
+
+
+Expected Deliverables:
+
+Working Supabase Database:
+
+Schema with all tables
+RLS policies active
+SQL functions created
+Test data inserted
+
+
+Deployed Replit API:
+
+Express server running
+All endpoints functional
+Public URL accessible
+Environment variables configured
+
+
+GitHub Repository:
+
+All code committed
+README with setup instructions
+API documentation
+.env.example file
+
+
+Test Results:
+
+Proof that analytics functions return correct calculations
+API endpoint tests showing expected responses
+Security verification (RLS working)
+
+
+
+
+Common Pitfalls to Avoid:
+
+Don't hardcode user IDs - always use authenticated user context
+Don't forget to handle NULL values in calculations (divide by zero errors)
+Don't skip indexes - queries will be slow without them
+Don't expose service role key to frontend - security risk
+Don't return too much data - paginate large result sets
+Don't forget CORS - frontend can't call API without it
+
+
+Final Notes:
+This backend is the brain of trackd.app. The quality of your SQL functions directly determines how valuable the insights are to users. A plumber using this app should see "You're leaving £15,000/year on the table by undercharging" - that insight comes from your competitor comparison function being accurate.
+Focus on making the data reliable and the API fast. The frontend will make it look good, but you're making it work.

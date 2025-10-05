@@ -16,6 +16,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  createUserFromSupabase(supabaseId: string, data: { email: string; businessName: string | null; ownerName: string | null }): Promise<User>;
   updateUserProfile(id: string, profile: UpdateUserProfile): Promise<User>;
   
   // Job operations  
@@ -109,6 +110,34 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db
       .insert(users)
       .values(insertUser)
+      .returning();
+    return user;
+  }
+
+  async createUserFromSupabase(
+    supabaseId: string,
+    data: { email: string; businessName: string | null; ownerName: string | null }
+  ): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        id: supabaseId,
+        username: data.email,
+        password: '',
+        email: data.email,
+        businessName: data.businessName,
+        ownerName: data.ownerName,
+        subscriptionTier: 'free',
+        onboardingStatus: 'incomplete',
+        teamSize: 1,
+        specializations: [],
+        notifications: {
+          competitorAlerts: true,
+          insightDigest: true,
+          jobReminders: false,
+          marketingTips: true
+        }
+      })
       .returning();
     return user;
   }
@@ -737,6 +766,44 @@ export class MemStorage implements IStorage {
       updatedAt: new Date()
     };
     this.users.set(id, user);
+    return user;
+  }
+
+  async createUserFromSupabase(
+    supabaseId: string,
+    data: { email: string; businessName: string | null; ownerName: string | null }
+  ): Promise<User> {
+    const user: User = {
+      id: supabaseId,
+      username: data.email,
+      password: '',
+      businessName: data.businessName,
+      ownerName: data.ownerName,
+      email: data.email,
+      phone: null,
+      address: null,
+      serviceArea: null,
+      serviceAreaRadius: null,
+      businessType: null,
+      specializations: [],
+      targetHourlyRate: null,
+      location: null,
+      teamSize: 1,
+      yearsInBusiness: null,
+      subscriptionTier: "free",
+      onboardingStatus: "incomplete",
+      monthlyRevenueGoal: null,
+      weeklyHoursTarget: null,
+      notifications: {
+        competitorAlerts: true,
+        insightDigest: true,
+        jobReminders: false,
+        marketingTips: true
+      },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.users.set(supabaseId, user);
     return user;
   }
   

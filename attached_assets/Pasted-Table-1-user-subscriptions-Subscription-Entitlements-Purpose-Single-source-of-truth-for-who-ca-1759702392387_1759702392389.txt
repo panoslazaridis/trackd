@@ -1,0 +1,546 @@
+Table 1: user_subscriptions (Subscription & Entitlements)
+Purpose: Single source of truth for who can access what, billing status, and revenue tracking.
+sqlCREATE TABLE user_subscriptions (
+  -- Identity
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+  
+  -- Stripe integration
+  stripe_customer_id text UNIQUE,
+  stripe_subscription_id text UNIQUE,
+  
+  -- Subscription tier & status
+  subscription_tier text NOT NULL DEFAULT 'free', 
+  -- 'free' | 'basic' (£9/mo) | 'professional' (£19/mo) | 'premium' (£39/mo) | 'enterprise' (£99/mo)
+  
+  subscription_status text NOT NULL DEFAULT 'active',
+  -- 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete'
+  
+  -- Pricing
+  monthly_price_gbp decimal(10,2) DEFAULT 0,
+  annual_price_gbp decimal(10,2), -- if paying annually
+  billing_cycle text DEFAULT 'monthly', -- 'monthly' | 'annual'
+  currency text DEFAULT 'GBP',
+  
+  -- Trial management
+  trial_active boolean DEFAULT false,
+  trial_start_date timestamptz,
+  trial_end_date timestamptz,
+  trial_converted_to_paid boolean DEFAULT false,
+  trial_conversion_date timestamptz,
+  
+  -- Discounts
+  active_discount_code text,
+  discount_percentage integer, -- e.g., 20 for 20% off
+  discount_amount_gbp decimal(10,2),
+  discount_valid_until timestamptz,
+  lifetime_discount boolean DEFAULT false, -- grandfathered pricing
+  
+  -- Billing dates
+  subscription_start_date timestamptz DEFAULT now(),
+  current_period_start timestamptz,
+  current_period_end timestamptz,
+  next_billing_date timestamptz,
+  last_payment_date timestamptz,
+  last_payment_amount_gbp decimal(10,2),
+  
+  -- Cancellation
+  cancel_at_period_end boolean DEFAULT false,
+  canceled_at timestamptz,
+  cancellation_reason text,
+  
+  -- Feature entitlements (what they can access)
+  max_jobs_per_month integer, -- NULL = unlimited
+  max_competitors integer DEFAULT 3,
+  ai_parsing_credits_monthly integer DEFAULT 10,
+  
+  -- Feature flags
+  feature_advanced_analytics boolean DEFAULT false,
+  feature_competitor_alerts boolean DEFAULT false,
+  feature_export_reports boolean DEFAULT false,
+  feature_api_access boolean DEFAULT false,
+  feature_whatsapp_integration boolean DEFAULT false,
+  feature_white_label boolean DEFAULT false,
+  feature_multi_user boolean DEFAULT false,
+  
+  -- Usage tracking (for current billing period)
+  usage_jobs_created_this_month integer DEFAULT 0,
+  usage_ai_parsing_this_month integer DEFAULT 0,
+  usage_reports_exported_this_month integer DEFAULT 0,
+  usage_period_start timestamptz,
+  
+  -- Revenue metrics (calculated/updated by triggers)
+  total_revenue_all_time decimal(10,2) DEFAULT 0,
+  months_as_customer integer DEFAULT 0,
+  
+  -- Acquisition
+  utm_source text,
+  utm_medium text,
+  utm_campaign text,
+  referral_code text,
+  
+  -- Timestamps
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  
+  -- Constraints
+  CONSTRAINT valid_tier CHECK (subscription_tier IN ('free', 'basic', 'professional', 'premium', 'enterprise')),
+  CONSTRAINT valid_status CHECK (subscription_status IN ('active', 'trialing', 'past_due', 'canceled', 'incomplete', 'paused'))
+);
+
+-- Indexes
+CREATE INDEX idx_user_subscriptions_user_id ON user_subscriptions(user_id);
+CREATE INDEX idx_user_subscriptions_tier ON user_subscriptions(subscription_tier);
+CREATE INDEX idx_user_subscriptions_status ON user_subscriptions(subscription_status);
+CREATE INDEX idx_user_subscriptions_stripe ON user_subscriptions(stripe_customer_id);
+CREATE INDEX idx_user_subscriptions_next_billing ON user_subscriptions(next_billing_date);
+CREATE INDEX idx_user_subscriptions_trial_end ON user_subscriptions(trial_end_date) WHERE trial_active = true;
+
+-- Auto-update timestamp
+CREATE TRIGGER update_user_subscriptions_updated_at
+  BEFORE UPDATE ON user_subscriptions
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+Entitlement Configuration by Tier:
+sql-- Function to set entitlements when tier changes
+CREATE OR REPLACE FUNCTION set_subscription_entitlements()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Free tier
+  IF NEW.subscription_tier = 'free' THEN
+    NEW.max_jobs_per_month := 20;
+    NEW.max_competitors := 3;
+    NEW.ai_parsing_credits_monthly := 10;
+    NEW.feature_advanced_analytics := false;
+    NEW.feature_competitor_alerts := false;
+    NEW.feature_export_reports := false;
+    NEW.feature_api_access := false;
+    NEW.feature_whatsapp_integration := false;
+    NEW.feature_white_label := false;
+    NEW.feature_multi_user := false;
+    NEW.monthly_price_gbp := 0;
+  
+  -- Basic tier (£9/month)
+  ELSIF NEW.subscription_tier = 'basic' THEN
+    NEW.max_jobs_per_month := 100;
+    NEW.max_competitors := 5;
+    NEW.ai_parsing_credits_monthly := 50;
+    NEW.feature_advanced_analytics := true;
+    NEW.feature_competitor_alerts := false;
+    NEW.feature_export_reports := true;
+    NEW.feature_api_access := false;
+    NEW.feature_whatsapp_integration := false;
+    NEW.feature_white_label := false;
+    NEW.feature_multi_user := false;
+    NEW.monthly_price_gbp := 9;
+  
+  -- Professional tier (£19/month)
+  ELSIF NEW.subscription_tier = 'professional' THEN
+    NEW.max_jobs_per_month := NULL; -- unlimited
+    NEW.max_competitors := 10;
+    NEW.ai_parsing_credits_monthly := 200;
+    NEW.feature_advanced_analytics := true;
+    NEW.feature_competitor_alerts := true;
+    NEW.feature_export_reports := true;
+    NEW.feature_api_access := false;
+    NEW.feature_whatsapp_integration := true;
+    NEW.feature_white_label := false;
+    NEW.feature_multi_user := true;
+    NEW.monthly_price_gbp := 19;
+  
+  -- Premium tier (£39/month)
+  ELSIF NEW.subscription_tier = 'premium' THEN
+    NEW.max_jobs_per_month := NULL;
+    NEW.max_competitors := 25;
+    NEW.ai_parsing_credits_monthly := 500;
+    NEW.feature_advanced_analytics := true;
+    NEW.feature_competitor_alerts := true;
+    NEW.feature_export_reports := true;
+    NEW.feature_api_access := true;
+    NEW.feature_whatsapp_integration := true;
+    NEW.feature_white_label := true;
+    NEW.feature_multi_user := true;
+    NEW.monthly_price_gbp := 39;
+  
+  -- Enterprise tier (£99/month)
+  ELSIF NEW.subscription_tier = 'enterprise' THEN
+    NEW.max_jobs_per_month := NULL;
+    NEW.max_competitors := NULL; -- unlimited
+    NEW.ai_parsing_credits_monthly := NULL; -- unlimited
+    NEW.feature_advanced_analytics := true;
+    NEW.feature_competitor_alerts := true;
+    NEW.feature_export_reports := true;
+    NEW.feature_api_access := true;
+    NEW.feature_whatsapp_integration := true;
+    NEW.feature_white_label := true;
+    NEW.feature_multi_user := true;
+    NEW.monthly_price_gbp := 99;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_set_subscription_entitlements
+  BEFORE INSERT OR UPDATE OF subscription_tier ON user_subscriptions
+  FOR EACH ROW
+  EXECUTE FUNCTION set_subscription_entitlements();
+
+Table 2: subscription_events (Audit Trail for Revenue)
+Purpose: Track all subscription changes for MRR/churn analysis.
+sqlCREATE TABLE subscription_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
+  subscription_id uuid REFERENCES user_subscriptions(id) ON DELETE CASCADE,
+  
+  -- Event type
+  event_type text NOT NULL,
+  -- 'subscription_created' | 'trial_started' | 'trial_converted' | 'upgraded' | 'downgraded' | 
+  -- 'canceled' | 'reactivated' | 'payment_succeeded' | 'payment_failed' | 'discount_applied'
+  
+  -- State changes
+  previous_tier text,
+  new_tier text,
+  previous_monthly_price decimal(10,2),
+  new_monthly_price decimal(10,2),
+  
+  -- MRR impact
+  mrr_change decimal(10,2), -- Monthly Recurring Revenue change
+  is_expansion boolean DEFAULT false, -- upgrade or expansion
+  is_contraction boolean DEFAULT false, -- downgrade or churn
+  
+  -- Context
+  stripe_event_id text, -- Stripe webhook event ID
+  triggered_by text, -- 'user' | 'admin' | 'stripe' | 'system'
+  notes text,
+  
+  created_at timestamptz DEFAULT now(),
+  
+  CONSTRAINT valid_event_type CHECK (event_type IN (
+    'subscription_created', 'trial_started', 'trial_converted', 'trial_expired',
+    'upgraded', 'downgraded', 'canceled', 'reactivated', 
+    'payment_succeeded', 'payment_failed', 'discount_applied', 'discount_removed',
+    'paused', 'resumed'
+  ))
+);
+
+CREATE INDEX idx_subscription_events_user ON subscription_events(user_id);
+CREATE INDEX idx_subscription_events_subscription ON subscription_events(subscription_id);
+CREATE INDEX idx_subscription_events_type ON subscription_events(event_type);
+CREATE INDEX idx_subscription_events_created ON subscription_events(created_at DESC);
+
+Table 3: user_engagement_metrics (Materialized View - Refreshed Daily)
+Purpose: Pre-calculated engagement metrics derived from existing data (jobs, auth, competitors).
+sqlCREATE MATERIALIZED VIEW user_engagement_metrics AS
+WITH 
+-- Login frequency from Supabase auth logs
+login_stats AS (
+  SELECT 
+    (payload->>'user_id')::uuid as user_id,
+    COUNT(*) as total_logins,
+    COUNT(DISTINCT DATE(created_at)) as unique_login_days,
+    MAX(created_at) as last_login,
+    MIN(created_at) as first_login
+  FROM auth.audit_log_entries
+  WHERE action = 'login'
+  GROUP BY (payload->>'user_id')::uuid
+),
+
+-- Job activity metrics
+job_stats AS (
+  SELECT 
+    user_id,
+    COUNT(*) as total_jobs,
+    COUNT(*) FILTER (WHERE created_at >= now() - interval '30 days') as jobs_last_30_days,
+    COUNT(*) FILTER (WHERE created_at >= now() - interval '7 days') as jobs_last_7_days,
+    COUNT(DISTINCT DATE(created_at)) as active_job_days,
+    SUM(revenue) as total_revenue_tracked,
+    AVG(revenue) as avg_job_revenue,
+    SUM(revenue - COALESCE(expenses, 0)) as total_profit,
+    AVG(revenue / NULLIF(total_hours, 0)) as avg_hourly_rate,
+    MAX(created_at) as last_job_created,
+    MIN(created_at) as first_job_created
+  FROM jobs
+  GROUP BY user_id
+),
+
+-- Competitor research activity
+competitor_stats AS (
+  SELECT 
+    user_id,
+    COUNT(*) as total_competitors_tracked,
+    MAX(created_at) as last_competitor_added,
+    COUNT(*) FILTER (WHERE active = true) as active_competitors
+  FROM competitors
+  GROUP BY user_id
+),
+
+-- AI usage (if you have an ai_requests table, otherwise we'll track this via usage fields)
+ai_stats AS (
+  SELECT 
+    user_id,
+    COUNT(*) as total_ai_requests,
+    COUNT(*) FILTER (WHERE created_at >= now() - interval '30 days') as ai_requests_last_30_days,
+    AVG(CASE WHEN success = true THEN 1 ELSE 0 END) as ai_success_rate,
+    MAX(created_at) as last_ai_request
+  FROM ai_requests -- if this table exists
+  GROUP BY user_id
+)
+
+SELECT 
+  u.id as user_id,
+  u.email,
+  u.business_name,
+  u.business_type,
+  u.created_at as signup_date,
+  EXTRACT(DAY FROM now() - u.created_at) as days_since_signup,
+  
+  -- Login engagement
+  COALESCE(l.total_logins, 0) as total_logins,
+  COALESCE(l.unique_login_days, 0) as unique_login_days,
+  l.last_login,
+  EXTRACT(DAY FROM now() - COALESCE(l.last_login, u.created_at)) as days_since_last_login,
+  
+  -- Job engagement
+  COALESCE(j.total_jobs, 0) as total_jobs_created,
+  COALESCE(j.jobs_last_30_days, 0) as jobs_last_30_days,
+  COALESCE(j.jobs_last_7_days, 0) as jobs_last_7_days,
+  COALESCE(j.active_job_days, 0) as days_with_job_activity,
+  COALESCE(j.total_revenue_tracked, 0) as total_revenue_tracked,
+  COALESCE(j.avg_job_revenue, 0) as avg_job_revenue,
+  COALESCE(j.total_profit, 0) as total_profit_tracked,
+  COALESCE(j.avg_hourly_rate, 0) as avg_hourly_rate,
+  j.last_job_created,
+  EXTRACT(DAY FROM now() - COALESCE(j.last_job_created, u.created_at)) as days_since_last_job,
+  
+  -- Competitor research engagement
+  COALESCE(c.total_competitors_tracked, 0) as competitors_tracked,
+  COALESCE(c.active_competitors, 0) as active_competitors,
+  c.last_competitor_added,
+  
+  -- AI feature engagement (if ai_requests table exists)
+  COALESCE(a.total_ai_requests, 0) as total_ai_requests,
+  COALESCE(a.ai_requests_last_30_days, 0) as ai_requests_last_30_days,
+  COALESCE(a.ai_success_rate, 0) as ai_success_rate,
+  a.last_ai_request,
+  
+  -- Engagement scoring (simple health score 0-100)
+  LEAST(100, GREATEST(0,
+    (CASE WHEN l.total_logins > 0 THEN 20 ELSE 0 END) + -- logged in = 20 points
+    (CASE WHEN j.total_jobs >= 5 THEN 30 ELSE j.total_jobs * 6 END) + -- jobs = up to 30 points
+    (CASE WHEN c.total_competitors_tracked > 0 THEN 20 ELSE 0 END) + -- competitor research = 20 points
+    (CASE WHEN a.total_ai_requests > 0 THEN 15 ELSE 0 END) + -- AI usage = 15 points
+    (CASE WHEN j.jobs_last_7_days > 0 THEN 15 ELSE 0 END) -- recent activity = 15 points
+  )) as engagement_score,
+  
+  -- Activity recency flag
+  CASE 
+    WHEN j.jobs_last_7_days > 0 OR l.last_login > now() - interval '7 days' THEN 'active'
+    WHEN j.jobs_last_30_days > 0 OR l.last_login > now() - interval '30 days' THEN 'casual'
+    WHEN l.last_login > now() - interval '90 days' THEN 'at_risk'
+    ELSE 'dormant'
+  END as activity_status,
+  
+  -- Value indicators
+  CASE 
+    WHEN j.total_jobs >= 20 AND j.jobs_last_30_days >= 5 THEN 'power_user'
+    WHEN j.total_jobs >= 10 AND j.jobs_last_30_days >= 2 THEN 'engaged'
+    WHEN j.total_jobs >= 5 THEN 'moderate'
+    WHEN j.total_jobs > 0 THEN 'light'
+    ELSE 'inactive'
+  END as user_segment,
+  
+  -- Last updated
+  now() as metrics_calculated_at
+
+FROM users u
+LEFT JOIN login_stats l ON u.id = l.user_id
+LEFT JOIN job_stats j ON u.id = j.user_id
+LEFT JOIN competitor_stats c ON u.id = c.user_id
+LEFT JOIN ai_stats a ON u.id = a.user_id;
+
+-- Indexes on materialized view
+CREATE UNIQUE INDEX idx_engagement_metrics_user_id ON user_engagement_metrics(user_id);
+CREATE INDEX idx_engagement_metrics_score ON user_engagement_metrics(engagement_score DESC);
+CREATE INDEX idx_engagement_metrics_status ON user_engagement_metrics(activity_status);
+CREATE INDEX idx_engagement_metrics_segment ON user_engagement_metrics(user_segment);
+CREATE INDEX idx_engagement_metrics_last_activity ON user_engagement_metrics(days_since_last_job);
+
+-- Refresh function (run daily via cron)
+CREATE OR REPLACE FUNCTION refresh_engagement_metrics()
+RETURNS void AS $$
+BEGIN
+  REFRESH MATERIALIZED VIEW CONCURRENTLY user_engagement_metrics;
+END;
+$$ LANGUAGE plpgsql;
+
+Analytics Views (Pre-built Queries)
+View 1: Revenue Dashboard
+sqlCREATE VIEW revenue_dashboard AS
+SELECT 
+  DATE_TRUNC('month', s.current_period_start) as month,
+  s.subscription_tier,
+  
+  -- Subscription counts
+  COUNT(*) as active_subscriptions,
+  COUNT(*) FILTER (WHERE s.trial_active = true) as trials,
+  COUNT(*) FILTER (WHERE s.trial_converted_to_paid = true) as trial_conversions,
+  
+  -- Revenue metrics
+  SUM(s.monthly_price_gbp) as total_mrr,
+  SUM(s.monthly_price_gbp) FILTER (WHERE s.created_at >= DATE_TRUNC('month', s.current_period_start)) as new_mrr,
+  SUM(s.monthly_price_gbp) FILTER (WHERE s.cancel_at_period_end = true) as churning_mrr,
+  
+  -- Average values
+  AVG(s.monthly_price_gbp) as arpu,
+  AVG(s.total_revenue_all_time) as avg_ltv,
+  AVG(s.months_as_customer) as avg_customer_lifetime_months,
+  
+  -- Churn indicators
+  COUNT(*) FILTER (WHERE s.cancel_at_period_end = true) as pending_cancellations,
+  ROUND(100.0 * COUNT(*) FILTER (WHERE s.cancel_at_period_end = true) / NULLIF(COUNT(*), 0), 2) as churn_rate_pct
+
+FROM user_subscriptions s
+WHERE s.subscription_status IN ('active', 'trialing')
+GROUP BY DATE_TRUNC('month', s.current_period_start), s.subscription_tier;
+View 2: User Health Dashboard
+sqlCREATE VIEW user_health_dashboard AS
+SELECT 
+  e.user_id,
+  e.email,
+  e.business_name,
+  e.activity_status,
+  e.user_segment,
+  e.engagement_score,
+  
+  -- Usage metrics
+  e.total_jobs_created,
+  e.jobs_last_30_days,
+  e.total_logins,
+  e.days_since_last_login,
+  e.days_since_last_job,
+  
+  -- Subscription info
+  s.subscription_tier,
+  s.subscription_status,
+  s.monthly_price_gbp,
+  s.months_as_customer,
+  
+  -- Churn risk calculation
+  CASE 
+    WHEN e.days_since_last_login > 30 THEN 90
+    WHEN e.days_since_last_job > 21 THEN 70
+    WHEN e.jobs_last_30_days = 0 AND e.total_jobs > 5 THEN 60
+    WHEN e.engagement_score < 30 THEN 50
+    WHEN s.cancel_at_period_end = true THEN 100
+    ELSE GREATEST(0, 50 - e.engagement_score)
+  END as churn_risk_score,
+  
+  -- Value category
+  CASE 
+    WHEN s.monthly_price_gbp >= 39 AND e.engagement_score >= 70 THEN 'high_value_engaged'
+    WHEN s.monthly_price_gbp >= 19 AND e.engagement_score >= 50 THEN 'medium_value_engaged'
+    WHEN s.monthly_price_gbp >= 9 THEN 'low_value'
+    WHEN e.engagement_score >= 70 THEN 'high_potential_free'
+    ELSE 'low_potential'
+  END as value_category
+
+FROM user_engagement_metrics e
+LEFT JOIN user_subscriptions s ON e.user_id = s.user_id;
+View 3: Cohort Performance
+sqlCREATE VIEW cohort_analysis AS
+WITH cohorts AS (
+  SELECT 
+    DATE_TRUNC('month', created_at) as cohort_month,
+    id as user_id
+  FROM users
+)
+SELECT 
+  c.cohort_month,
+  COUNT(DISTINCT c.user_id) as cohort_size,
+  
+  -- Retention
+  COUNT(DISTINCT c.user_id) FILTER (WHERE e.activity_status IN ('active', 'casual')) as retained_users,
+  ROUND(100.0 * COUNT(DISTINCT c.user_id) FILTER (WHERE e.activity_status IN ('active', 'casual')) / COUNT(DISTINCT c.user_id), 2) as retention_rate,
+  
+  -- Engagement
+  AVG(e.engagement_score) as avg_engagement_score,
+  AVG(e.total_jobs_created) as avg_jobs_per_user,
+  AVG(e.total_revenue_tracked) as avg_revenue_tracked_per_user,
+  
+  -- Monetization
+  COUNT(DISTINCT c.user_id) FILTER (WHERE s.subscription_tier != 'free') as paid_users,
+  ROUND(100.0 * COUNT(DISTINCT c.user_id) FILTER (WHERE s.subscription_tier != 'free') / COUNT(DISTINCT c.user_id), 2) as conversion_rate,
+  SUM(s.monthly_price_gbp) as cohort_mrr,
+  AVG(s.monthly_price_gbp) FILTER (WHERE s.subscription_tier != 'free') as arpu_paid_users
+
+FROM cohorts c
+LEFT JOIN user_engagement_metrics e ON c.user_id = e.user_id
+LEFT JOIN user_subscriptions s ON c.user_id = s.user_id
+GROUP BY c.cohort_month
+ORDER BY c.cohort_month DESC;
+View 4: Feature Adoption Funnel
+sqlCREATE VIEW feature_adoption_funnel AS
+SELECT 
+  COUNT(DISTINCT user_id) as total_users,
+  
+  -- Core features
+  COUNT(DISTINCT user_id) FILTER (WHERE total_jobs_created >= 1) as users_created_job,
+  COUNT(DISTINCT user_id) FILTER (WHERE total_jobs_created >= 5) as users_5plus_jobs,
+  COUNT(DISTINCT user_id) FILTER (WHERE total_jobs_created >= 20) as users_20plus_jobs,
+  
+  -- Competitor research
+  COUNT(DISTINCT user_id) FILTER (WHERE competitors_tracked >= 1) as users_added_competitor,
+  COUNT(DISTINCT user_id) FILTER (WHERE competitors_tracked >= 3) as users_3plus_competitors,
+  
+  -- AI features
+  COUNT(DISTINCT user_id) FILTER (WHERE total_ai_requests >= 1) as users_tried_ai,
+  COUNT(DISTINCT user_id) FILTER (WHERE total_ai_requests >= 5) as users_regular_ai,
+  
+  -- Conversion rates
+  ROUND(100.0 * COUNT(DISTINCT user_id) FILTER (WHERE total_jobs_created >= 1) / COUNT(DISTINCT user_id), 2) as pct_created_job,
+  ROUND(100.0 * COUNT(DISTINCT user_id) FILTER (WHERE competitors_tracked >= 1) / COUNT(DISTINCT user_id), 2) as pct_competitor_research,
+  ROUND(100.0 * COUNT(DISTINCT user_id) FILTER (WHERE total_ai_requests >= 1) / COUNT(DISTINCT user_id), 2) as pct_ai_adoption
+
+FROM user_engagement_metrics;
+
+Automatic Maintenance (Scheduled Jobs)
+sql-- Daily refresh of engagement metrics (run at 2 AM)
+SELECT cron.schedule(
+  'refresh-engagement-metrics',
+  '0 2 * * *', -- Every day at 2 AM
+  $$ SELECT refresh_engagement_metrics(); $$
+);
+
+-- Monthly subscription metrics update (run on 1st of month)
+SELECT cron.schedule(
+  'update-subscription-lifetime-metrics',
+  '0 3 1 * *', -- 1st of month at 3 AM
+  $$
+    UPDATE user_subscriptions
+    SET 
+      months_as_customer = EXTRACT(MONTH FROM AGE(now(), subscription_start_date)),
+      total_revenue_all_time = (
+        SELECT COALESCE(SUM(new_monthly_price), 0)
+        FROM subscription_events
+        WHERE subscription_id = user_subscriptions.id
+          AND event_type IN ('payment_succeeded', 'trial_converted')
+      )
+    WHERE subscription_status IN ('active', 'trialing');
+  $$
+);
+
+-- Weekly trial expiration check
+SELECT cron.schedule(
+  'check-trial-expirations',
+  '0 9 * * 1', -- Every Monday at 9 AM
+  $$
+    UPDATE user_subscriptions
+    SET 
+      trial_active = false,
+      subscription_status = 'inactive'
+    WHERE trial_active = true
+      AND trial_end_date < now()
+      AND NOT trial_converted_to_paid;
+  $$
+);

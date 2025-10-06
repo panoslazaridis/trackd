@@ -1,0 +1,379 @@
+import Stripe from "stripe";
+import type { Express, Request, Response } from "express";
+import { storage } from "./storage";
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+}
+
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2025-09-30.clover",
+});
+
+// Stripe pricing tiers mapped to price amounts (in GBP)
+const TIER_PRICES = {
+  free: 0,
+  basic: 9.00,
+  professional: 19.00,
+  premium: 39.00,
+  enterprise: 99.00,
+};
+
+export async function registerStripeRoutes(app: Express) {
+  
+  // Create or retrieve Stripe customer
+  app.post("/api/stripe/create-customer", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "userId is required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Check if user already has a Stripe customer
+      const subscription = await storage.getUserSubscription(userId);
+      if (subscription?.stripeCustomerId) {
+        return res.json({ customerId: subscription.stripeCustomerId });
+      }
+
+      // Create new Stripe customer
+      const customer = await stripe.customers.create({
+        email: user.email || undefined,
+        name: user.businessName || user.ownerName || user.username,
+        metadata: {
+          userId: user.id,
+          businessType: user.businessType || 'unknown',
+        },
+      });
+
+      // Update user subscription with Stripe customer ID
+      await storage.updateUserSubscription(userId, {
+        stripeCustomerId: customer.id,
+      });
+
+      res.json({ customerId: customer.id });
+    } catch (error: any) {
+      console.error("Error creating Stripe customer:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create subscription checkout session
+  app.post("/api/stripe/create-checkout-session", async (req, res) => {
+    try {
+      const { userId, tier, billingCycle = 'monthly' } = req.body;
+
+      if (!userId || !tier) {
+        return res.status(400).json({ error: "userId and tier are required" });
+      }
+
+      if (!['basic', 'professional', 'premium', 'enterprise'].includes(tier)) {
+        return res.status(400).json({ error: "Invalid tier" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Get or create Stripe customer
+      let subscription = await storage.getUserSubscription(userId);
+      let customerId = subscription?.stripeCustomerId;
+
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email || undefined,
+          name: user.businessName || user.ownerName || user.username,
+          metadata: { userId: user.id },
+        });
+        customerId = customer.id;
+        await storage.updateUserSubscription(userId, {
+          stripeCustomerId: customerId,
+        });
+      }
+
+      // Calculate price
+      const basePrice = TIER_PRICES[tier as keyof typeof TIER_PRICES];
+      const amount = billingCycle === 'annual' 
+        ? Math.round(basePrice * 12 * 0.85) // 15% discount for annual
+        : basePrice;
+
+      // Create Checkout Session
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'gbp',
+              product_data: {
+                name: `TrackD ${tier.charAt(0).toUpperCase() + tier.slice(1)} Plan`,
+                description: `${billingCycle === 'annual' ? 'Annual' : 'Monthly'} subscription`,
+              },
+              unit_amount: Math.round(amount * 100), // Convert to pence
+              recurring: {
+                interval: billingCycle === 'annual' ? 'year' : 'month',
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: `${req.headers.origin || 'http://localhost:5000'}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${req.headers.origin || 'http://localhost:5000'}/subscription/cancel`,
+        metadata: {
+          userId,
+          tier,
+          billingCycle,
+        },
+      });
+
+      res.json({ sessionId: session.id, url: session.url });
+    } catch (error: any) {
+      console.error("Error creating checkout session:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Handle successful checkout
+  app.post("/api/stripe/checkout-success", async (req, res) => {
+    try {
+      const { sessionId } = req.body;
+
+      if (!sessionId) {
+        return res.status(400).json({ error: "sessionId is required" });
+      }
+
+      const session = await stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ['subscription'],
+      });
+
+      if (!session.metadata?.userId) {
+        return res.status(400).json({ error: "Invalid session" });
+      }
+
+      const userId = session.metadata.userId;
+      const tier = session.metadata.tier as string;
+      const billingCycle = session.metadata.billingCycle as string;
+      const subscription = session.subscription as Stripe.Subscription;
+
+      // Update user subscription in database
+      await storage.updateUserSubscription(userId, {
+        stripeSubscriptionId: subscription.id,
+        subscriptionTier: tier,
+        subscriptionStatus: 'active',
+        monthlyPriceGbp: TIER_PRICES[tier as keyof typeof TIER_PRICES].toString(),
+        billingCycle: billingCycle,
+        currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
+        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+        subscriptionStartDate: new Date(),
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error processing checkout success:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Cancel subscription
+  app.post("/api/stripe/cancel-subscription", async (req, res) => {
+    try {
+      const { userId } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ error: "userId is required" });
+      }
+
+      const subscription = await storage.getUserSubscription(userId);
+      if (!subscription?.stripeSubscriptionId) {
+        return res.status(404).json({ error: "No active subscription found" });
+      }
+
+      // Cancel at period end
+      const stripeSubscription = await stripe.subscriptions.update(
+        subscription.stripeSubscriptionId,
+        {
+          cancel_at_period_end: true,
+        }
+      );
+
+      // Update database
+      await storage.updateUserSubscription(userId, {
+        cancelAtPeriodEnd: true,
+        canceledAt: new Date(),
+      });
+
+      res.json({ success: true, cancelAt: new Date(stripeSubscription.cancel_at! * 1000) });
+    } catch (error: any) {
+      console.error("Error canceling subscription:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Reactivate canceled subscription
+  app.post("/api/stripe/reactivate-subscription", async (req, res) => {
+    try {
+      const { userId } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ error: "userId is required" });
+      }
+
+      const subscription = await storage.getUserSubscription(userId);
+      if (!subscription?.stripeSubscriptionId) {
+        return res.status(404).json({ error: "No subscription found" });
+      }
+
+      // Remove cancellation
+      await stripe.subscriptions.update(
+        subscription.stripeSubscriptionId,
+        {
+          cancel_at_period_end: false,
+        }
+      );
+
+      // Update database
+      await storage.updateUserSubscription(userId, {
+        cancelAtPeriodEnd: false,
+        canceledAt: null,
+        subscriptionStatus: 'active',
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error reactivating subscription:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get subscription details
+  app.get("/api/stripe/subscription/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      const subscription = await storage.getUserSubscription(userId);
+      if (!subscription) {
+        return res.json({ subscription: null });
+      }
+
+      // If there's a Stripe subscription, fetch latest data
+      if (subscription.stripeSubscriptionId) {
+        try {
+          const stripeSubscription = await stripe.subscriptions.retrieve(
+            subscription.stripeSubscriptionId
+          );
+
+          // Return combined data
+          res.json({
+            subscription: {
+              ...subscription,
+              stripeStatus: stripeSubscription.status,
+              currentPeriodEnd: new Date((stripeSubscription as any).current_period_end * 1000),
+            },
+          });
+        } catch (error) {
+          // Stripe subscription not found, return database data only
+          res.json({ subscription });
+        }
+      } else {
+        res.json({ subscription });
+      }
+    } catch (error: any) {
+      console.error("Error fetching subscription:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Stripe webhook handler
+  app.post("/api/stripe/webhook", async (req: Request, res: Response) => {
+    const sig = req.headers['stripe-signature'];
+
+    if (!sig) {
+      return res.status(400).send('No signature');
+    }
+
+    let event: Stripe.Event;
+
+    try {
+      // In production, you should set STRIPE_WEBHOOK_SECRET
+      if (process.env.STRIPE_WEBHOOK_SECRET) {
+        event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+      } else {
+        // For development/testing without webhook secret
+        event = JSON.parse(req.body.toString());
+      }
+    } catch (err: any) {
+      console.error('Webhook signature verification failed:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event
+    try {
+      switch (event.type) {
+        case 'customer.subscription.updated':
+        case 'customer.subscription.created': {
+          const subscription = event.data.object as Stripe.Subscription;
+          const userId = subscription.metadata?.userId;
+
+          if (userId) {
+            await storage.updateUserSubscription(userId, {
+              subscriptionStatus: subscription.status as any,
+              currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
+              currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+            });
+          }
+          break;
+        }
+
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object as Stripe.Subscription;
+          const userId = subscription.metadata?.userId;
+
+          if (userId) {
+            await storage.updateUserSubscription(userId, {
+              subscriptionStatus: 'canceled',
+              subscriptionTier: 'free',
+            });
+          }
+          break;
+        }
+
+        case 'invoice.payment_succeeded': {
+          const invoice = event.data.object as Stripe.Invoice;
+          const userId = (invoice as any).metadata?.userId;
+
+          if (userId) {
+            await storage.updateUserSubscription(userId, {
+              lastPaymentDate: new Date(),
+              lastPaymentAmountGbp: ((invoice.amount_paid || 0) / 100).toString(),
+            });
+          }
+          break;
+        }
+
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object as Stripe.Invoice;
+          const userId = (invoice as any).metadata?.userId;
+
+          if (userId) {
+            await storage.updateUserSubscription(userId, {
+              subscriptionStatus: 'past_due',
+            });
+          }
+          break;
+        }
+      }
+
+      res.json({ received: true });
+    } catch (error: any) {
+      console.error('Error handling webhook:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+}

@@ -1,10 +1,11 @@
 import { 
-  users, customers, jobs, competitors, insights,
+  users, customers, jobs, competitors, insights, userSubscriptions,
   type User, type InsertUser, type UpdateUserProfile,
   type Job, type InsertJob,
   type Customer, type InsertCustomer,
   type Competitor, type InsertCompetitor,
-  type Insight, type InsertInsight
+  type Insight, type InsertInsight,
+  type UserSubscription
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -92,6 +93,10 @@ export interface IStorage {
     userAverageRate: number;
     priceDifference: number;
   }>>;
+  
+  // Subscription operations
+  getUserSubscription(userId: string): Promise<UserSubscription | undefined>;
+  updateUserSubscription(userId: string, data: Partial<Omit<UserSubscription, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>): Promise<UserSubscription>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -712,6 +717,40 @@ export class DatabaseStorage implements IStorage {
         ));
     }
   }
+
+  // Subscription operations
+  async getUserSubscription(userId: string): Promise<UserSubscription | undefined> {
+    const [subscription] = await db
+      .select()
+      .from(userSubscriptions)
+      .where(eq(userSubscriptions.userId, userId));
+    return subscription || undefined;
+  }
+
+  async updateUserSubscription(
+    userId: string, 
+    data: Partial<Omit<UserSubscription, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>
+  ): Promise<UserSubscription> {
+    // Check if subscription exists
+    const existing = await this.getUserSubscription(userId);
+    
+    if (existing) {
+      // Update existing subscription
+      const [updated] = await db
+        .update(userSubscriptions)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(userSubscriptions.userId, userId))
+        .returning();
+      return updated;
+    } else {
+      // Create new subscription
+      const [created] = await db
+        .insert(userSubscriptions)
+        .values({ userId, ...data } as any)
+        .returning();
+      return created;
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();
@@ -844,4 +883,6 @@ export class MemStorage implements IStorage {
   async getCustomerValueRanking(): Promise<any[]> { return []; }
   async getSeasonalTrends(): Promise<any[]> { return []; }
   async getCompetitorComparison(): Promise<any[]> { return []; }
+  async getUserSubscription(): Promise<UserSubscription | undefined> { return undefined; }
+  async updateUserSubscription(): Promise<UserSubscription> { throw new Error("Not implemented in MemStorage"); }
 }

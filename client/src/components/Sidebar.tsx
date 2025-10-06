@@ -6,6 +6,7 @@ import {
   TrendingUp, 
   User, 
   Lightbulb,
+  CreditCard,
   Menu,
   X
 } from "lucide-react";
@@ -25,6 +26,7 @@ const navigationItems = [
   { path: "/competitors", icon: TrendingUp, label: "Competitors" },
   { path: "/profile", icon: User, label: "Profile" },
   { path: "/insights", icon: Lightbulb, label: "Insights" },
+  { path: "/subscription", icon: CreditCard, label: "Subscription" },
 ];
 
 export default function Sidebar({ className = "" }: SidebarProps) {

@@ -12,6 +12,7 @@ import Customers from "@/pages/Customers";
 import Competitors from "@/pages/Competitors";
 import Profile from "@/pages/Profile";
 import Insights from "@/pages/Insights";
+import Subscription from "@/pages/subscription";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/competitors" component={Competitors} />
       <Route path="/profile" component={Profile} />
       <Route path="/insights" component={Insights} />
+      <Route path="/subscription" component={Subscription} />
       <Route component={NotFound} />
     </Switch>
   );

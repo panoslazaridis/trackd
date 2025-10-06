@@ -7,7 +7,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-09-30.clover",
+  apiVersion: "2024-11-20.acacia",
 });
 
 // Stripe pricing tiers mapped to price amounts (in GBP)
@@ -63,7 +63,7 @@ export async function registerStripeRoutes(app: Express) {
     }
   });
 
-  // Create subscription checkout session
+  // Create subscription checkout session or upgrade existing
   app.post("/api/stripe/create-checkout-session", async (req, res) => {
     try {
       const { userId, tier, billingCycle = 'monthly' } = req.body;
@@ -81,10 +81,74 @@ export async function registerStripeRoutes(app: Express) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      // Get or create Stripe customer
+      // Get existing subscription
       let subscription = await storage.getUserSubscription(userId);
-      let customerId = subscription?.stripeCustomerId;
+      
+      // Check if trying to change to current tier
+      if (subscription?.subscriptionTier === tier) {
+        return res.status(400).json({ error: "You are already on this plan" });
+      }
+      
+      // If user has existing Stripe subscription (any status except canceled), upgrade/downgrade immediately
+      if (subscription?.stripeSubscriptionId) {
+        const stripeSubscription = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+        
+        // If subscription is canceled, create new one instead of updating
+        if (stripeSubscription.status === 'canceled') {
+          // Clear the subscription ID so we create a new one
+          subscription.stripeSubscriptionId = undefined;
+        } else {
+        
+        // Calculate new price
+        const basePrice = TIER_PRICES[tier as keyof typeof TIER_PRICES];
+        const amount = billingCycle === 'annual' 
+          ? Math.round(basePrice * 12 * 0.85) 
+          : basePrice;
 
+        // Create or get the price
+        const price = await stripe.prices.create({
+          currency: 'gbp',
+          unit_amount: Math.round(amount * 100),
+          recurring: {
+            interval: billingCycle === 'annual' ? 'year' : 'month',
+          },
+          product_data: {
+            name: `TrackD ${tier.charAt(0).toUpperCase() + tier.slice(1)} Plan`,
+          },
+        });
+
+        // Update subscription with new price
+        const updatedSubscription = await stripe.subscriptions.update(
+          subscription.stripeSubscriptionId,
+          {
+            items: [{
+              id: stripeSubscription.items.data[0].id,
+              price: price.id,
+            }],
+            proration_behavior: 'always_invoice',
+            metadata: {
+              userId,
+              tier,
+              billingCycle,
+            },
+          }
+        );
+
+        // Update database
+        await storage.updateUserSubscription(userId, {
+          subscriptionTier: tier,
+          monthlyPriceGbp: basePrice.toString(),
+          billingCycle: billingCycle,
+          currentPeriodStart: new Date(updatedSubscription.current_period_start * 1000),
+          currentPeriodEnd: new Date(updatedSubscription.current_period_end * 1000),
+        });
+
+        return res.json({ success: true, message: 'Subscription updated' });
+        }
+      }
+
+      // Get or create Stripe customer for new subscription
+      let customerId = subscription?.stripeCustomerId;
       if (!customerId) {
         const customer = await stripe.customers.create({
           email: user.email || undefined,
@@ -97,13 +161,13 @@ export async function registerStripeRoutes(app: Express) {
         });
       }
 
-      // Calculate price
+      // Calculate price for new subscription
       const basePrice = TIER_PRICES[tier as keyof typeof TIER_PRICES];
       const amount = billingCycle === 'annual' 
-        ? Math.round(basePrice * 12 * 0.85) // 15% discount for annual
+        ? Math.round(basePrice * 12 * 0.85)
         : basePrice;
 
-      // Create Checkout Session
+      // Create Checkout Session for new subscription
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         payment_method_types: ['card'],
@@ -115,7 +179,7 @@ export async function registerStripeRoutes(app: Express) {
                 name: `TrackD ${tier.charAt(0).toUpperCase() + tier.slice(1)} Plan`,
                 description: `${billingCycle === 'annual' ? 'Annual' : 'Monthly'} subscription`,
               },
-              unit_amount: Math.round(amount * 100), // Convert to pence
+              unit_amount: Math.round(amount * 100),
               recurring: {
                 interval: billingCycle === 'annual' ? 'year' : 'month',
               },
@@ -124,8 +188,8 @@ export async function registerStripeRoutes(app: Express) {
           },
         ],
         mode: 'subscription',
-        success_url: `${req.headers.origin || 'http://localhost:5000'}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${req.headers.origin || 'http://localhost:5000'}/subscription/cancel`,
+        success_url: `${req.headers.origin || 'http://localhost:5000'}/subscription?success=true`,
+        cancel_url: `${req.headers.origin || 'http://localhost:5000'}/subscription?canceled=true`,
         metadata: {
           userId,
           tier,
@@ -135,7 +199,7 @@ export async function registerStripeRoutes(app: Express) {
 
       res.json({ sessionId: session.id, url: session.url });
     } catch (error: any) {
-      console.error("Error creating checkout session:", error);
+      console.error("Error creating/updating subscription:", error);
       res.status(500).json({ error: error.message });
     }
   });

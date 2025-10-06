@@ -81,13 +81,21 @@ export default function Subscription() {
     },
     onSuccess: (data) => {
       if (data.url) {
+        // New subscription - redirect to Stripe checkout
         window.location.href = data.url;
+      } else if (data.success) {
+        // Existing subscription updated
+        toast({
+          title: "Subscription Updated",
+          description: data.message || "Your subscription has been updated successfully.",
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/stripe/subscription", userId] });
       }
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to create checkout session",
+        description: error.message || "Failed to process subscription change",
         variant: "destructive",
       });
     },

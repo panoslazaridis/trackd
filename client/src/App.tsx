@@ -7,6 +7,7 @@ import { BusinessProvider } from "@/contexts/BusinessContext";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import TrialBanner from "@/components/TrialBanner";
+import TrialExpiryModal from "@/components/TrialExpiryModal";
 import Dashboard from "@/pages/Dashboard";
 import Jobs from "@/pages/Jobs";
 import Customers from "@/pages/Customers";
@@ -61,6 +62,7 @@ function App() {
               </main>
             </div>
           </div>
+          <TrialExpiryModal />
           <Toaster />
         </BusinessProvider>
       </TooltipProvider>

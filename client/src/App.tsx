@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BusinessProvider } from "@/contexts/BusinessContext";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
+import TrialBanner from "@/components/TrialBanner";
 import Dashboard from "@/pages/Dashboard";
 import Jobs from "@/pages/Jobs";
 import Customers from "@/pages/Customers";
@@ -50,6 +51,9 @@ function App() {
             <div className="flex flex-col flex-1 overflow-hidden">
               {/* Header */}
               <Header user={mockUser} />
+              
+              {/* Trial Banner */}
+              <TrialBanner />
               
               {/* Page Content */}
               <main className="flex-1 overflow-y-auto">

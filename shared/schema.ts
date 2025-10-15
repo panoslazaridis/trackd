@@ -20,8 +20,9 @@ export const users = pgTable("users", {
   location: text("location"),
   teamSize: integer("team_size").default(1),
   yearsInBusiness: integer("years_in_business"),
-  subscriptionTier: text("subscription_tier").default("free"),
+  subscriptionTier: text("subscription_tier").default("trial"),
   onboardingStatus: text("onboarding_status").default("incomplete"),
+  onboardingStep: integer("onboarding_step").default(0), // 0=not started, 1=business, 2=first job, 3=competitors, 4=complete
   monthlyRevenueGoal: decimal("monthly_revenue_goal", { precision: 10, scale: 2 }),
   weeklyHoursTarget: integer("weekly_hours_target"),
   notifications: json("notifications").$type<{
@@ -29,11 +30,15 @@ export const users = pgTable("users", {
     insightDigest: boolean;
     jobReminders: boolean;
     marketingTips: boolean;
+    emailNotifications: boolean;
+    smsNotifications: boolean;
   }>().default({
     competitorAlerts: true,
     insightDigest: true,
     jobReminders: false,
-    marketingTips: true
+    marketingTips: true,
+    emailNotifications: true,
+    smsNotifications: false
   }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -60,6 +65,7 @@ export const jobs = pgTable("jobs", {
   actualCompletionDate: timestamp("actual_completion_date"),
   location: text("location"),
   satisfactionRating: integer("satisfaction_rating"),
+  satisfactionEmoji: text("satisfaction_emoji"), // '😞', '😐', '😊'
   materials: json("materials").$type<{ name: string; cost: number; quantity: number }[]>().default([]),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),

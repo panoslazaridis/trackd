@@ -1,0 +1,4 @@
+Tier Name,Display Name,Monthly Price,Trial Duration Days,Max Jobs Per Month,Max Competitors,AI Credits Per Month,Insights Schedule,Insights Time,AI Model,Advanced Analytics,Competitor Alerts,Export Reports,API Access,WhatsApp Integration,Priority Support
+trial,Free Trial,0,30,20,3,3,daily,09:00,gpt-4o-mini,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE
+basic,Basic,9,,50,5,5,every_3_days,09:00,gpt-4o-mini,TRUE,FALSE,TRUE,FALSE,FALSE,FALSE
+pro,Professional,19,,,10,10,daily,09:00,gpt-4o-mini,TRUE,TRUE,TRUE,TRUE,TRUE,TRUE

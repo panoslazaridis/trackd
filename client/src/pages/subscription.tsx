@@ -8,55 +8,38 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
 const TIER_FEATURES = {
-  free: {
-    name: "Free",
+  trial: {
+    name: "Free Trial",
     price: "£0",
-    features: ["20 jobs per month", "3 competitors tracked", "10 AI credits", "Basic analytics"],
+    description: "30 days",
+    features: ["20 jobs", "3 competitors", "3 AI credits", "Daily insights at 9am"],
   },
   basic: {
     name: "Basic",
     price: "£9",
+    description: "per month",
     features: [
-      "100 jobs per month",
+      "50 jobs per month",
       "5 competitors tracked",
-      "50 AI credits",
+      "5 AI credits",
+      "Insights every 3 days",
       "Advanced analytics",
       "Export reports",
     ],
   },
-  professional: {
+  pro: {
     name: "Professional",
     price: "£19",
+    description: "per month",
     features: [
       "Unlimited jobs",
       "10 competitors tracked",
-      "200 AI credits",
+      "10 AI credits",
+      "Daily insights",
       "All analytics features",
       "Competitor alerts",
       "WhatsApp integration",
-    ],
-  },
-  premium: {
-    name: "Premium",
-    price: "£39",
-    features: [
-      "Unlimited jobs",
-      "25 competitors tracked",
-      "500 AI credits",
       "Priority support",
-      "API access",
-      "White-label branding",
-    ],
-  },
-  enterprise: {
-    name: "Enterprise",
-    price: "£99",
-    features: [
-      "Unlimited everything",
-      "Custom integrations",
-      "Dedicated support",
-      "Multi-user access",
-      "Custom training",
     ],
   },
 };
@@ -152,7 +135,7 @@ export default function Subscription() {
   }
 
   const currentSubscription = data?.subscription;
-  const currentTier = currentSubscription?.subscriptionTier || "free";
+  const currentTier = currentSubscription?.subscriptionTier || "trial";
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -163,7 +146,7 @@ export default function Subscription() {
         </p>
       </div>
 
-      {currentSubscription && currentSubscription.subscriptionTier !== "free" && (
+      {currentSubscription && currentSubscription.subscriptionTier !== "trial" && (
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Current Subscription</CardTitle>
@@ -223,7 +206,9 @@ export default function Subscription() {
               </div>
               <div className="mt-4">
                 <span className="text-4xl font-bold">{details.price}</span>
-                {tier !== "free" && <span className="text-muted-foreground">/month</span>}
+                {details.description && (
+                  <span className="text-muted-foreground ml-1">/{details.description}</span>
+                )}
               </div>
             </CardHeader>
             <CardContent className="flex-1">
@@ -242,19 +227,14 @@ export default function Subscription() {
                   <CreditCard className="mr-2 h-4 w-4" />
                   Current Plan
                 </Button>
-              ) : tier === "free" ? (
+              ) : tier === "trial" ? (
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => {
-                    if (currentSubscription) {
-                      cancelMutation.mutate();
-                    }
-                  }}
-                  disabled={!currentSubscription || currentSubscription.subscriptionTier === "free"}
-                  data-testid="button-downgrade-free"
+                  disabled
+                  data-testid="button-trial-info"
                 >
-                  Downgrade to Free
+                  Available on signup
                 </Button>
               ) : (
                 <Button
@@ -264,7 +244,7 @@ export default function Subscription() {
                   data-testid={`button-subscribe-${tier}`}
                 >
                   <CreditCard className="mr-2 h-4 w-4" />
-                  {currentTier === "free" ? "Subscribe" : "Change Plan"}
+                  {currentTier === "trial" ? "Subscribe" : "Change Plan"}
                 </Button>
               )}
             </CardFooter>

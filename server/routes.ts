@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import express from "express";
 import { generateCompetitorAnalysis, generatePricingAnalysis } from "./ai";
 import { registerStripeRoutes } from "./stripe";
+import { registerConfigRoutes } from "./config";
 import { z } from "zod";
 import { 
   insertJobSchema, 
@@ -353,6 +354,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register Stripe routes
   await registerStripeRoutes(app);
+  
+  // Register config routes
+  await registerConfigRoutes(app);
 
   const httpServer = createServer(app);
 

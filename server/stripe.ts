@@ -7,16 +7,15 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2024-11-20.acacia",
+  apiVersion: "2025-09-30.clover" as any,
 });
 
 // Stripe pricing tiers mapped to price amounts (in GBP)
+// Updated to 3 tiers: trial (free), basic, pro
 const TIER_PRICES = {
-  free: 0,
+  trial: 0,
   basic: 9.00,
-  professional: 19.00,
-  premium: 39.00,
-  enterprise: 99.00,
+  pro: 19.00,
 };
 
 export async function registerStripeRoutes(app: Express) {
@@ -72,8 +71,8 @@ export async function registerStripeRoutes(app: Express) {
         return res.status(400).json({ error: "userId and tier are required" });
       }
 
-      if (!['basic', 'professional', 'premium', 'enterprise'].includes(tier)) {
-        return res.status(400).json({ error: "Invalid tier" });
+      if (!['basic', 'pro'].includes(tier)) {
+        return res.status(400).json({ error: "Invalid tier - must be 'basic' or 'pro'" });
       }
 
       const user = await storage.getUser(userId);
@@ -96,7 +95,7 @@ export async function registerStripeRoutes(app: Express) {
         // If subscription is canceled, create new one instead of updating
         if (stripeSubscription.status === 'canceled') {
           // Clear the subscription ID so we create a new one
-          subscription.stripeSubscriptionId = undefined;
+          subscription.stripeSubscriptionId = null as any;
         } else {
         
         // Calculate new price
@@ -139,8 +138,8 @@ export async function registerStripeRoutes(app: Express) {
           subscriptionTier: tier,
           monthlyPriceGbp: basePrice.toString(),
           billingCycle: billingCycle,
-          currentPeriodStart: new Date(updatedSubscription.current_period_start * 1000),
-          currentPeriodEnd: new Date(updatedSubscription.current_period_end * 1000),
+          currentPeriodStart: new Date((updatedSubscription as any).current_period_start * 1000),
+          currentPeriodEnd: new Date((updatedSubscription as any).current_period_end * 1000),
         });
 
         return res.json({ success: true, message: 'Subscription updated' });

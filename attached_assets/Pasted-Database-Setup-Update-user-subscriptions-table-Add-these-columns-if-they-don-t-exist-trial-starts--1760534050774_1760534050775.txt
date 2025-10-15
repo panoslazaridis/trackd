@@ -1,0 +1,298 @@
+Database Setup
+Update user_subscriptions table
+Add these columns if they don't exist:
+
+trial_starts_at (timestamp) - when trial started
+trial_ends_at (timestamp) - when trial expires
+subscription_status (text) - values: 'trialing', 'active', 'cancelled', 'past_due'
+features_enabled (jsonb) - stores entitlements as JSON object
+
+Update customers table
+Change customer_satisfaction column from integer to text type to store: 'unhappy', 'neutral', 'happy'
+Update users table
+Add these columns if they don't exist:
+
+onboarding_completed (boolean, default false)
+email_notifications (boolean, default true)
+browser_notifications (boolean, default true)
+
+
+1. Add Customer Button
+What it should do:
+When user clicks "Add Customer" button, open a modal with a form containing:
+
+Customer name (required)
+Email (optional)
+Phone (optional)
+Address (optional)
+Customer type dropdown: New Customer | Repeat Customer
+Notes (textarea, optional)
+
+On submit, save to customers table with:
+
+Set total_revenue = 0
+Set total_jobs = 0
+Link to current user
+Close modal and refresh customer list
+Show success message
+
+
+2. Add Competitor Button
+What it should do:
+When user clicks "Add Competitor" button, open a modal with a form containing:
+
+Business name (required)
+Location (required)
+Services offered (checkboxes): Plumbing, Electrical, HVAC, Painting, General Contracting, Other
+Website URL (optional)
+Phone (optional)
+Notes (textarea, optional)
+
+Optional pricing section:
+
+Emergency call rate (£)
+Standard hourly rate (£)
+Call-out fee (£)
+
+On submit, save to competitors table with:
+
+Set active = true
+Set last_updated = current timestamp
+Link to current user
+Close modal and refresh competitors list
+Show success message
+
+
+3. Fix "Add New Job" Button on Dashboard
+What it should do:
+The "Add New Job" button on the dashboard currently doesn't work. It should either:
+
+Navigate to the Jobs page where the job form exists, OR
+Open the same job creation modal that exists on the Jobs page
+
+Make it do the same thing as the "Add New Job" button on the Jobs page.
+
+4. Auto-Add Customer from Job Form
+What it should do:
+When user is filling out "Add New Job" form:
+
+Customer name field should have autocomplete showing existing customers
+If user types a name that doesn't exist, show a checkbox: "Add as new customer"
+If checkbox is checked and job is saved, automatically create a new customer record with that name
+Link the job to the newly created customer
+
+
+5. Regenerate Insights Button
+What it should do:
+When user clicks "Regenerate" button on Insights page:
+
+Show loading state ("Generating insights...")
+Fetch user's last 30 days of jobs, customers, and competitors data
+Calculate these metrics:
+
+Average hourly rate by job type
+Most profitable customers (by revenue)
+Revenue trends over time
+Hours worked vs revenue earned
+
+
+Send this data to OpenAI with a prompt asking for 3-5 actionable business insights focusing on:
+
+Pricing opportunities (undercharging or overcharging)
+Customer value analysis (which customers to prioritize)
+Efficiency gaps (where they're wasting time)
+Competitive positioning
+
+
+Each insight should have:
+
+Title
+Description
+Specific recommendation
+Impact score (1-10)
+Urgency (high/medium/low)
+
+
+Delete old insights for this user from insights table
+Save new insights to database
+Track this as 1 AI request in ai_requests table
+Refresh insights display
+Show success message
+
+
+6. Clickable Notifications
+What it should do:
+Notification items currently appear but can't be clicked. Make each notification clickable:
+
+Job-related notifications → navigate to that specific job detail page
+Customer-related notifications → navigate to that customer detail page
+Insight-related notifications → navigate to insights page
+When clicked, mark notification as read
+Close notification dropdown
+
+
+7. Call Customer Button
+What it should do:
+In the Daily Focus section, there's a "Call Sarah M." button. Update it to:
+
+Check if the customer has a phone number in the database
+If phone exists: clicking opens phone dialer on mobile (tel: link) or shows phone number on desktop
+If no phone exists: show message "No phone number on file for this customer"
+Alternatively, just display the phone number as clickable text instead of a button
+
+
+8. Settings Page
+Build a Settings page with 5 tabs:
+Tab 1: Business Profile
+Edit form for:
+
+Business name
+Business type (dropdown)
+Location
+Phone number
+Service area (text or slider)
+Save button that updates user record
+
+Tab 2: Account Settings
+
+Change password section (current password, new password, confirm password fields)
+Email preferences checkboxes:
+
+Weekly performance summary emails
+Competitor price alert emails
+New insights notification emails
+
+
+Timezone dropdown
+Save button for preferences
+
+Tab 3: Subscription & Billing
+Display only (no actions needed yet):
+
+Current plan name
+Current plan price
+Trial days remaining (if on trial)
+Next billing date (if subscribed)
+AI credits remaining
+Placeholder: "Stripe integration coming soon"
+
+Tab 4: Data & Privacy
+Static information page showing:
+
+Explanation of what data is stored
+Customer data privacy note: "We store your customer names and contact info to help you track business performance. This data is private and never shared."
+GDPR compliance statement
+Link to Privacy Policy page (create simple static page)
+"Delete Account" button (shows confirmation modal, then marks account as deleted)
+
+Tab 5: Notifications
+
+Toggle switch: Enable browser notifications
+Toggle switch: Enable email notifications
+"Test Notification" button to send sample notification
+Save button to update preferences
+
+Wire the Settings icon/link in top navigation to open this page.
+
+9. Customer Satisfaction - Emoji System
+What it should do:
+Replace the 1-5 satisfaction score system with a 3-option emoji system:
+On customer detail pages and edit forms:
+
+Show 3 emoji options: 😞 Unhappy | 😐 Neutral | 😊 Happy
+User clicks one to set satisfaction level
+Save as text in database: 'unhappy', 'neutral', or 'happy'
+
+Update satisfaction percentage calculations:
+
+% = (number of happy customers / total customers) × 100
+Display emojis in customer list instead of percentages where appropriate
+
+
+10. Improved Signup Form
+Enhance the signup page to collect:
+
+Email (required, existing)
+Password (required, existing)
+Business name (required, existing)
+Business type (dropdown, NEW): Plumber | Electrician | HVAC Technician | Painter | General Contractor | Handyman | Other
+Location (text input, NEW): "e.g., Greater Manchester"
+Phone number (optional, NEW)
+
+On successful signup:
+
+Create user account
+Create user_subscriptions record with:
+
+trial_starts_at = now
+trial_ends_at = now + 30 days
+subscription_status = 'trialing'
+plan_tier = 'professional' (give full features during trial)
+
+
+Set onboarding_completed = false
+Redirect to onboarding wizard (see next task)
+
+
+11. Onboarding Wizard
+Create 3-step wizard that appears after signup:
+Step 1: Business Details
+Form fields:
+
+Service area radius (slider: 5 to 50 miles)
+Years in business (number input)
+Team size (number input: just you, 2-5, 6-10, 11+)
+"Skip for now" button
+"Next" button
+
+Step 2: Add Your First Job (Optional)
+Simplified job form:
+
+Customer name
+Job type (dropdown)
+Revenue (£)
+Hours worked
+"I'll add jobs later" button (skips)
+"Save & Continue" button (creates job and continues)
+
+Step 3: Discover Competitors (Optional)
+Information screen with:
+
+Heading: "Want to see how your pricing compares?"
+Explanation: "We can research local competitors in your area and compare their rates to yours"
+"Find My Competitors" button (mark for later - just skip for now)
+"Skip for now" button
+
+On wizard completion:
+
+Set user.onboarding_completed = true
+Redirect to dashboard
+Show welcome message or tour
+
+
+12. Trial Banner on Dashboard
+Add to the top of dashboard:
+A banner that shows:
+
+Message: "Your trial ends in X days" (calculate from trial_ends_at)
+Warning color styling (yellow/orange background)
+"Subscribe Now" button (for now, link to subscription page - Stripe integration comes later)
+Only visible when subscription_status = 'trialing'
+
+
+13. Trial Expiry Protection
+Create access control that blocks expired users:
+On all protected pages (Dashboard, Jobs, Customers, Competitors, Insights):
+
+Check user's subscription_status and trial_ends_at
+If status = 'trialing' AND trial_ends_at < now → trial expired
+If status = 'cancelled' → subscription cancelled
+If expired/cancelled: Show fullscreen modal with:
+
+Message: "Your trial has ended"
+Cannot be dismissed (no X button)
+Show pricing cards (Free £0, Basic £9, Professional £19)
+"Subscribe Now" buttons (for later - Stripe will handle this)
+
+
+If active trial or active subscription → allow access

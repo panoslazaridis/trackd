@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, CreditCard, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getCurrentUserId } from "@/lib/auth";
 import { differenceInDays } from "date-fns";
 
 const TIER_FEATURES = {
@@ -65,14 +66,12 @@ export default function TrialExpiryModal() {
 
   const createCheckoutMutation = useMutation({
     mutationFn: async ({ tier }: { tier: string }) => {
-      return await apiRequest("/api/stripe/create-checkout-session", {
-        method: "POST",
-        body: JSON.stringify({ 
-          userId: "test-user-id", // TODO: Get from auth context
-          tier,
-          billingCycle: "monthly",
-        }),
+      const response = await apiRequest("POST", "/api/stripe/create-checkout-session", {
+        userId: getCurrentUserId(),
+        tier,
+        billingCycle: "monthly",
       });
+      return response.json();
     },
     onSuccess: (data) => {
       if (data.url) {

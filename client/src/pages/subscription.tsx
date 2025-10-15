@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, CreditCard, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { getCurrentUserId } from "@/lib/auth";
 
 const TIER_FEATURES = {
   trial: {
@@ -47,7 +48,7 @@ const TIER_FEATURES = {
 export default function Subscription() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const userId = "test-user-plumber"; // TODO: Get from auth context
+  const userId = getCurrentUserId();
 
   const { data, isLoading } = useQuery<{ subscription: any }>({
     queryKey: ["/api/stripe/subscription", userId],

@@ -5,9 +5,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarDays, Clock, DollarSign, User, Wrench } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CalendarDays, Check, ChevronsUpDown, Clock, DollarSign, User, UserPlus, Wrench } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { businessTypes } from "./BusinessTypeSelector";
 import { useBusinessContext } from "@/contexts/BusinessContext";
+import CustomerForm from "./CustomerForm";
+import type { Customer } from "@shared/schema";
 
 interface JobFormData {
   customerName: string;
@@ -58,6 +65,8 @@ const jobStatuses = [
 export default function JobForm({ onSubmit, onCancel, className = "" }: JobFormProps) {
   const { businessType, getCurrentBusiness } = useBusinessContext();
   const currentBusiness = getCurrentBusiness();
+  const userId = currentBusiness?.id || "test-user-plumber"; // TODO: Get from auth
+  
   const [formData, setFormData] = useState<JobFormData>({
     customerName: "",
     jobType: "",
@@ -70,8 +79,32 @@ export default function JobForm({ onSubmit, onCancel, className = "" }: JobFormP
     date: new Date().toISOString().split('T')[0],
   });
 
+  // Customer autocomplete state
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [customerSearchValue, setCustomerSearchValue] = useState("");
+  const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false);
+  const [addAsNewCustomer, setAddAsNewCustomer] = useState(false);
+
+  // Fetch customers for autocomplete
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: [`/api/customers/${userId}`],
+  });
+
   const handleInputChange = (field: keyof JobFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCustomerSelect = (customerName: string) => {
+    setFormData(prev => ({ ...prev, customerName }));
+    setCustomerSearchValue(customerName);
+    setCustomerSearchOpen(false);
+  };
+
+  const handleNewCustomerCreated = (customerData: any) => {
+    setFormData(prev => ({ ...prev, customerName: customerData.name }));
+    setCustomerSearchValue(customerData.name);
+    setShowNewCustomerDialog(false);
+    setAddAsNewCustomer(false);
   };
 
   const jobTypesForBusiness = getJobTypesForBusiness(businessType);
@@ -96,18 +129,95 @@ export default function JobForm({ onSubmit, onCancel, className = "" }: JobFormP
           {/* Customer & Job Type */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="customerName" className="flex items-center gap-2">
+              <Label className="flex items-center gap-2">
                 <User className="w-4 h-4" />
                 Customer Name
               </Label>
-              <Input
-                id="customerName"
-                placeholder="e.g., Sarah Matthews"
-                value={formData.customerName}
-                onChange={(e) => handleInputChange("customerName", e.target.value)}
-                data-testid="input-customer-name"
-                required
-              />
+              
+              {addAsNewCustomer ? (
+                <Input
+                  placeholder="Enter new customer name"
+                  value={formData.customerName}
+                  onChange={(e) => handleInputChange("customerName", e.target.value)}
+                  data-testid="input-new-customer-name"
+                  required
+                />
+              ) : (
+                <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={customerSearchOpen}
+                      className="w-full justify-between"
+                      data-testid="button-customer-search"
+                    >
+                      {formData.customerName || "Select customer..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Search customers..." 
+                        value={customerSearchValue}
+                        onValueChange={setCustomerSearchValue}
+                      />
+                      <CommandList>
+                        <CommandEmpty>No customer found.</CommandEmpty>
+                        <CommandGroup>
+                          {customers
+                            .filter(customer => 
+                              customer.name.toLowerCase().includes(customerSearchValue.toLowerCase())
+                            )
+                            .map((customer) => (
+                              <CommandItem
+                                key={customer.id}
+                                value={customer.name}
+                                onSelect={() => handleCustomerSelect(customer.name)}
+                                data-testid={`option-customer-${customer.id}`}
+                              >
+                                <Check
+                                  className={`mr-2 h-4 w-4 ${
+                                    formData.customerName === customer.name ? "opacity-100" : "opacity-0"
+                                  }`}
+                                />
+                                <div className="flex flex-col">
+                                  <span>{customer.name}</span>
+                                  {customer.email && (
+                                    <span className="text-xs text-muted-foreground">{customer.email}</span>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
+              
+              <div className="flex items-center space-x-2 pt-1">
+                <Checkbox 
+                  id="addNewCustomer" 
+                  checked={addAsNewCustomer}
+                  onCheckedChange={(checked) => {
+                    setAddAsNewCustomer(checked as boolean);
+                    if (checked) {
+                      setFormData(prev => ({ ...prev, customerName: "" }));
+                      setCustomerSearchValue("");
+                    }
+                  }}
+                  data-testid="checkbox-add-new-customer"
+                />
+                <Label 
+                  htmlFor="addNewCustomer" 
+                  className="text-sm font-normal cursor-pointer flex items-center gap-1"
+                >
+                  <UserPlus className="w-3 h-3" />
+                  Add as new customer
+                </Label>
+              </div>
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-2">

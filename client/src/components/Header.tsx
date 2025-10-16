@@ -1,9 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Search, Settings, Sun, Moon } from "lucide-react";
+import { Bell, Search, Settings, Sun, Moon, Lightbulb, Briefcase, Users, TrendingUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
+import { formatDistanceToNow } from "date-fns";
+import type { Insight, Job, Customer } from "@shared/schema";
 
 interface HeaderProps {
   user?: {
@@ -16,12 +23,61 @@ interface HeaderProps {
 
 export default function Header({ user, className = "" }: HeaderProps) {
   const [isDark, setIsDark] = useState(false);
-  const [notifications] = useState(3); // Mock notification count
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [, navigate] = useLocation();
+  const userId = "test-user-plumber"; // TODO: Get from auth
+
+  // Fetch recent insights and jobs for notifications
+  const { data: insights = [] } = useQuery<Insight[]>({
+    queryKey: [`/api/insights/${userId}`],
+  });
+
+  const { data: jobs = [] } = useQuery<Job[]>({
+    queryKey: [`/api/jobs/${userId}`],
+  });
+
+  // Generate notifications from recent data
+  const notifications = [
+    // Recent insights (last 3)
+    ...insights
+      .filter(i => i.status === 'active' && i.createdAt)
+      .slice(0, 3)
+      .map(insight => ({
+        id: insight.id,
+        type: 'insight' as const,
+        title: insight.title,
+        message: insight.priority === 'high' ? 'High priority insight' : 'New insight available',
+        time: insight.createdAt!,
+        link: '/insights',
+        icon: Lightbulb,
+      })),
+    // Recent jobs (last 2)
+    ...jobs
+      .filter(j => j.createdAt)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+      .slice(0, 2)
+      .map(job => ({
+        id: job.id,
+        type: 'job' as const,
+        title: `${job.jobType} job`,
+        message: `${job.customerName} - £${job.revenue}`,
+        time: job.createdAt!,
+        link: '/jobs',
+        icon: Briefcase,
+      })),
+  ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+
+  const notificationCount = notifications.length;
 
   const toggleTheme = () => {
     setIsDark(!isDark);
     document.documentElement.classList.toggle("dark");
     console.log(`Theme switched to ${!isDark ? "dark" : "light"} mode`);
+  };
+
+  const handleNotificationClick = (link: string) => {
+    navigate(link);
+    setNotificationsOpen(false);
   };
 
   return (
@@ -41,16 +97,78 @@ export default function Header({ user, className = "" }: HeaderProps) {
       {/* Actions */}
       <div className="flex items-center gap-2">
         {/* Notifications */}
-        <div className="relative">
-          <Button variant="ghost" size="icon" className="hover-elevate" data-testid="button-notifications">
-            <Bell className="w-4 h-4" />
-          </Button>
-          {notifications > 0 && (
-            <Badge className="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs bg-destructive text-destructive-foreground">
-              {notifications}
-            </Badge>
-          )}
-        </div>
+        <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+          <PopoverTrigger asChild>
+            <div className="relative">
+              <Button variant="ghost" size="icon" className="hover-elevate" data-testid="button-notifications">
+                <Bell className="w-4 h-4" />
+              </Button>
+              {notificationCount > 0 && (
+                <Badge className="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs bg-destructive text-destructive-foreground">
+                  {notificationCount}
+                </Badge>
+              )}
+            </div>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align="end">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h4 className="font-semibold text-sm">Notifications</h4>
+              <Badge variant="secondary" className="text-xs">{notificationCount}</Badge>
+            </div>
+            <ScrollArea className="max-h-[400px]">
+              {notifications.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No new notifications
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {notifications.map((notification, index) => {
+                    const Icon = notification.icon;
+                    return (
+                      <button
+                        key={notification.id}
+                        onClick={() => handleNotificationClick(notification.link)}
+                        className="w-full p-4 hover-elevate active-elevate-2 flex items-start gap-3 text-left transition-colors"
+                        data-testid={`notification-${index}`}
+                      >
+                        <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground line-clamp-1">
+                            {notification.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatDistanceToNow(new Date(notification.time), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </ScrollArea>
+            {notifications.length > 0 && (
+              <>
+                <Separator />
+                <div className="p-2">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full text-xs" 
+                    size="sm"
+                    onClick={() => setNotificationsOpen(false)}
+                    data-testid="button-close-notifications"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </>
+            )}
+          </PopoverContent>
+        </Popover>
 
         {/* Theme Toggle */}
         <Button 

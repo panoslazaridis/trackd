@@ -11,6 +11,7 @@ import CustomerForm from "@/components/CustomerForm";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCurrentUserId } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { useBusinessContext } from "@/contexts/BusinessContext";
 import type { Customer } from "@shared/schema";
 import { 
   Users, 
@@ -25,81 +26,6 @@ import {
   Plus
 } from "lucide-react";
 
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  totalJobs: number;
-  totalRevenue: number;
-  averageJobValue: number;
-  lastJobDate: string;
-  satisfactionScore: number;
-  status: "Active" | "Inactive" | "New";
-  preferredServices: string[];
-}
-
-// Mock customer data - TODO: remove mock functionality
-const mockCustomers: Customer[] = [
-  {
-    id: "1",
-    name: "Sarah Matthews",
-    email: "sarah.m@email.com",
-    phone: "07123 456789",
-    address: "123 Oak Street, Manchester",
-    totalJobs: 8,
-    totalRevenue: 2400,
-    averageJobValue: 300,
-    lastJobDate: "2024-01-15",
-    satisfactionScore: 95,
-    status: "Active",
-    preferredServices: ["Emergency Plumbing", "Bathroom Repair"],
-  },
-  {
-    id: "2",
-    name: "David Wilson",
-    email: "d.wilson@email.com", 
-    phone: "07234 567890",
-    address: "45 Pine Avenue, Manchester",
-    totalJobs: 5,
-    totalRevenue: 1800,
-    averageJobValue: 360,
-    lastJobDate: "2024-01-10",
-    satisfactionScore: 88,
-    status: "Active",
-    preferredServices: ["Kitchen Renovation", "General Plumbing"],
-  },
-  {
-    id: "3",
-    name: "Emma Johnson",
-    email: "emma.j@email.com",
-    phone: "07345 678901",
-    address: "78 Maple Road, Manchester",
-    totalJobs: 3,
-    totalRevenue: 900,
-    averageJobValue: 300,
-    lastJobDate: "2024-01-05",
-    satisfactionScore: 92,
-    status: "New",
-    preferredServices: ["Bathroom Installation"],
-  },
-  {
-    id: "4",
-    name: "Michael Brown",
-    email: "m.brown@email.com",
-    phone: "07456 789012",
-    address: "12 Cedar Close, Manchester", 
-    totalJobs: 12,
-    totalRevenue: 3600,
-    averageJobValue: 300,
-    lastJobDate: "2023-11-20",
-    satisfactionScore: 85,
-    status: "Inactive",
-    preferredServices: ["HVAC Maintenance", "Boiler Service"],
-  },
-];
-
 const statusConfig = {
   "Active": { color: "bg-chart-1 text-chart-1-foreground", label: "Active" },
   "Inactive": { color: "bg-muted text-muted-foreground", label: "Inactive" },
@@ -111,6 +37,8 @@ export default function Customers() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const userId = getCurrentUserId();
   const { toast } = useToast();
+  const { getCurrentBusiness } = useBusinessContext();
+  const currentBusiness = getCurrentBusiness();
 
   // Fetch customers from API
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
@@ -175,7 +103,32 @@ export default function Customers() {
   };
 
   const handleContactCustomer = (customerId: string, method: 'phone' | 'email') => {
-    console.log(`Contact customer ${customerId} via ${method}`);
+    const customer = customers.find(c => c.id === customerId);
+    if (!customer) return;
+
+    if (method === 'phone') {
+      if (customer.phone) {
+        // Open phone dialer with customer's phone number
+        window.location.href = `tel:${customer.phone}`;
+      } else {
+        toast({
+          title: "No phone number",
+          description: `${customer.name} doesn't have a phone number on record.`,
+          variant: "destructive",
+        });
+      }
+    } else if (method === 'email') {
+      if (customer.email) {
+        // Open email client with customer's email
+        window.location.href = `mailto:${customer.email}?subject=Follow-up from ${currentBusiness?.name || 'Your Business'}`;
+      } else {
+        toast({
+          title: "No email address",
+          description: `${customer.name} doesn't have an email address on record.`,
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   return (
@@ -277,7 +230,7 @@ export default function Customers() {
       {/* Customers Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredCustomers.map((customer) => {
-          const statusSettings = statusConfig[customer.status ?? "New"];
+          const statusSettings = statusConfig[(customer.status ?? "New") as keyof typeof statusConfig];
           const daysSinceLastJob = customer.lastJobDate 
             ? Math.floor((new Date().getTime() - new Date(customer.lastJobDate).getTime()) / (1000 * 3600 * 24))
             : null;

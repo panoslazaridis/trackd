@@ -7,52 +7,88 @@ import { Check, CreditCard, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { getCurrentUserId } from "@/lib/auth";
+import { formatPrice, type Currency } from "@shared/currency";
 
-const TIER_FEATURES = {
-  trial: {
-    name: "Free Trial",
-    price: "£0",
-    description: "30 days",
-    features: ["20 jobs", "3 competitors", "3 AI credits", "Daily insights at 9am"],
-  },
-  basic: {
-    name: "Basic",
-    price: "£9",
-    description: "per month",
-    features: [
-      "50 jobs per month",
-      "5 competitors tracked",
-      "5 AI credits",
-      "Insights every 3 days",
-      "Advanced analytics",
-      "Export reports",
-    ],
-  },
-  pro: {
-    name: "Professional",
-    price: "£19",
-    description: "per month",
-    features: [
-      "Unlimited jobs",
-      "10 competitors tracked",
-      "10 AI credits",
-      "Daily insights",
-      "All analytics features",
-      "Competitor alerts",
-      "WhatsApp integration",
-      "Priority support",
-    ],
-  },
-};
+interface TierConfig {
+  tierName: string;
+  displayName: string;
+  pricing: {
+    gbp: number;
+    eur: number;
+    usd: number;
+  };
+  trialDurationDays?: number;
+  maxJobsPerMonth: number | null;
+  maxCompetitors: number;
+  aiCreditsPerMonth: number;
+  insightGenerationSchedule: string;
+  insightGenerationTime: string;
+  features: {
+    advancedAnalytics: boolean;
+    competitorAlerts: boolean;
+    exportReports: boolean;
+    apiAccess: boolean;
+    whatsappIntegration: boolean;
+    prioritySupport: boolean;
+  };
+}
+
+function getTierFeatureList(tier: TierConfig): string[] {
+  const features: string[] = [];
+  
+  // Add job limit
+  if (tier.maxJobsPerMonth === null) {
+    features.push("Unlimited jobs");
+  } else {
+    features.push(`${tier.maxJobsPerMonth} jobs per month`);
+  }
+  
+  // Add competitors
+  features.push(`${tier.maxCompetitors} competitors tracked`);
+  
+  // Add AI credits
+  features.push(`${tier.aiCreditsPerMonth} AI credits`);
+  
+  // Add insights schedule
+  const scheduleMap: Record<string, string> = {
+    'daily': 'Daily insights',
+    'every_3_days': 'Insights every 3 days',
+    'weekly': 'Weekly insights',
+    'monthly': 'Monthly insights',
+  };
+  features.push(scheduleMap[tier.insightGenerationSchedule] || 'Regular insights');
+  
+  // Add feature flags
+  if (tier.features.advancedAnalytics) features.push("Advanced analytics");
+  if (tier.features.competitorAlerts) features.push("Competitor alerts");
+  if (tier.features.exportReports) features.push("Export reports");
+  if (tier.features.apiAccess) features.push("API access");
+  if (tier.features.whatsappIntegration) features.push("WhatsApp integration");
+  if (tier.features.prioritySupport) features.push("Priority support");
+  
+  return features;
+}
 
 export default function Subscription() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const userId = getCurrentUserId();
 
+  // Fetch tier configurations from Airtable
+  const { data: tierData, isLoading: tiersLoading } = useQuery<{ tiers: TierConfig[] }>({
+    queryKey: ["/api/config/tiers"],
+  });
+
+  // Fetch user data to get preferred currency
+  const { data: userData } = useQuery<{ preferredCurrency: Currency }>({
+    queryKey: [`/api/user/${userId}`],
+  });
+
   const { data, isLoading } = useQuery<{ subscription: any }>({
     queryKey: ["/api/stripe/subscription", userId],
   });
+
+  const userCurrency = (userData?.preferredCurrency || 'GBP') as Currency;
 
   const createCheckoutMutation = useMutation({
     mutationFn: async ({ tier }: { tier: string }) => {
@@ -127,7 +163,7 @@ export default function Subscription() {
     },
   });
 
-  if (isLoading) {
+  if (isLoading || tiersLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -137,6 +173,7 @@ export default function Subscription() {
 
   const currentSubscription = data?.subscription;
   const currentTier = currentSubscription?.subscriptionTier || "trial";
+  const tiers = tierData?.tiers || [];
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -156,9 +193,11 @@ export default function Subscription() {
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-lg font-semibold">{TIER_FEATURES[currentTier as keyof typeof TIER_FEATURES]?.name}</p>
+                <p className="text-lg font-semibold">
+                  {tiers.find(t => t.tierName === currentTier)?.displayName || currentTier}
+                </p>
                 <p className="text-sm text-muted-foreground">
-                  {currentSubscription.monthlyPriceGbp ? `£${currentSubscription.monthlyPriceGbp}/month` : ""}
+                  {currentSubscription.monthlyPriceGbp ? `${formatPrice(parseFloat(currentSubscription.monthlyPriceGbp), userCurrency)}/month` : ""}
                 </p>
                 <Badge variant={currentSubscription.subscriptionStatus === "active" ? "default" : "secondary"} className="mt-2">
                   {currentSubscription.subscriptionStatus}
@@ -190,67 +229,75 @@ export default function Subscription() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {Object.entries(TIER_FEATURES).map(([tier, details]) => (
-          <Card
-            key={tier}
-            className={`flex flex-col ${
-              currentTier === tier ? "border-primary border-2" : ""
-            }`}
-            data-testid={`card-plan-${tier}`}
-          >
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>{details.name}</CardTitle>
-                {currentTier === tier && (
-                  <Badge variant="default" data-testid={`badge-current-${tier}`}>Current</Badge>
+        {tiers.map((tier) => {
+          const priceKey = userCurrency.toLowerCase() as 'gbp' | 'eur' | 'usd';
+          const price = tier.pricing[priceKey];
+          const features = getTierFeatureList(tier);
+          
+          return (
+            <Card
+              key={tier.tierName}
+              className={`flex flex-col ${
+                currentTier === tier.tierName ? "border-primary border-2" : ""
+              }`}
+              data-testid={`card-plan-${tier.tierName}`}
+            >
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>{tier.displayName}</CardTitle>
+                  {currentTier === tier.tierName && (
+                    <Badge variant="default" data-testid={`badge-current-${tier.tierName}`}>Current</Badge>
+                  )}
+                </div>
+                <div className="mt-4">
+                  <span className="text-4xl font-bold">{formatPrice(price, userCurrency)}</span>
+                  {tier.trialDurationDays ? (
+                    <span className="text-muted-foreground ml-1"> for {tier.trialDurationDays} days</span>
+                  ) : (
+                    <span className="text-muted-foreground ml-1">/month</span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="flex-1">
+                <ul className="space-y-2">
+                  {features.map((feature, index) => (
+                    <li key={index} className="flex items-start gap-2" data-testid={`feature-${tier.tierName}-${index}`}>
+                      <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+              <CardFooter>
+                {currentTier === tier.tierName ? (
+                  <Button disabled className="w-full" data-testid={`button-current-${tier.tierName}`}>
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Current Plan
+                  </Button>
+                ) : tier.tierName === "trial" ? (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    disabled
+                    data-testid="button-trial-info"
+                  >
+                    Available on signup
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full"
+                    onClick={() => createCheckoutMutation.mutate({ tier: tier.tierName })}
+                    disabled={createCheckoutMutation.isPending}
+                    data-testid={`button-subscribe-${tier.tierName}`}
+                  >
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    {currentTier === "trial" ? "Subscribe" : "Change Plan"}
+                  </Button>
                 )}
-              </div>
-              <div className="mt-4">
-                <span className="text-4xl font-bold">{details.price}</span>
-                {details.description && (
-                  <span className="text-muted-foreground ml-1">/{details.description}</span>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="flex-1">
-              <ul className="space-y-2">
-                {details.features.map((feature, index) => (
-                  <li key={index} className="flex items-start gap-2" data-testid={`feature-${tier}-${index}`}>
-                    <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <span className="text-sm">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-            <CardFooter>
-              {currentTier === tier ? (
-                <Button disabled className="w-full" data-testid={`button-current-${tier}`}>
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Current Plan
-                </Button>
-              ) : tier === "trial" ? (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  disabled
-                  data-testid="button-trial-info"
-                >
-                  Available on signup
-                </Button>
-              ) : (
-                <Button
-                  className="w-full"
-                  onClick={() => createCheckoutMutation.mutate({ tier })}
-                  disabled={createCheckoutMutation.isPending}
-                  data-testid={`button-subscribe-${tier}`}
-                >
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  {currentTier === "trial" ? "Subscribe" : "Change Plan"}
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
-        ))}
+              </CardFooter>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

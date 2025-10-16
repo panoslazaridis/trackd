@@ -1,0 +1,161 @@
+
+1. Add Customer Button
+What it should do:
+When user clicks "Add Customer" button, open a modal with a form containing:
+
+Customer name (required)
+Email (optional)
+Phone (optional)
+Address (optional)
+Customer type dropdown: New Customer | Repeat Customer
+Notes (textarea, optional)
+
+On submit, save to customers table with:
+
+Set total_revenue = 0
+Set total_jobs = 0
+Link to current user
+Close modal and refresh customer list
+Show success message
+
+
+2. Add Competitor Button
+What it should do:
+When user clicks "Add Competitor" button, open a modal with a form containing:
+
+Business name (required)
+Location (required)
+Services offered (checkboxes): Plumbing, Electrical, HVAC, Painting, General Contracting, Other
+Website URL (optional)
+Phone (optional)
+Notes (textarea, optional)
+
+Optional pricing section:
+
+Emergency call rate (£)
+Standard hourly rate (£)
+Call-out fee (£)
+
+On submit, save to competitors table with:
+
+Set active = true
+Set last_updated = current timestamp
+Link to current user
+Close modal and refresh competitors list
+Show success message
+
+
+3. Fix "Add New Job" Button on Dashboard
+What it should do:
+The "Add New Job" button on the dashboard currently doesn't work. It should either:
+
+Navigate to the Jobs page where the job form exists, OR
+Open the same job creation modal that exists on the Jobs page
+
+Make it do the same thing as the "Add New Job" button on the Jobs page.
+
+4. Auto-Add Customer from Job Form
+What it should do:
+When user is filling out "Add New Job" form:
+
+Customer name field should have autocomplete showing existing customers
+If user types a name that doesn't exist, show a checkbox: "Add as new customer"
+If checkbox is checked and job is saved, automatically create a new customer record with that name
+Link the job to the newly created customer
+
+
+5. Regenerate Insights Button
+What it should do:
+When user clicks "Regenerate" button on Insights page:
+
+Show loading state ("Generating insights...")
+Fetch user's last 30 days of jobs, customers, and competitors data
+Calculate these metrics:
+
+Average hourly rate by job type
+Most profitable customers (by revenue)
+Revenue trends over time
+Hours worked vs revenue earned
+
+
+Send this data to OpenAI with a prompt asking for 3-5 actionable business insights focusing on:
+
+Pricing opportunities (undercharging or overcharging)
+Customer value analysis (which customers to prioritize)
+Efficiency gaps (where they're wasting time)
+Competitive positioning
+
+
+Each insight should have:
+
+Title
+Description
+Specific recommendation
+Impact score (1-10)
+Urgency (high/medium/low)
+
+
+Delete old insights for this user from insights table
+Save new insights to database
+Track this as 1 AI request in ai_requests table
+Refresh insights display
+Show success message
+
+
+6. Clickable Notifications
+What it should do:
+Notification items currently appear but can't be clicked. Make each notification clickable:
+
+Job-related notifications → navigate to that specific job detail page
+Customer-related notifications → navigate to that customer detail page
+Insight-related notifications → navigate to insights page
+When clicked, mark notification as read
+Close notification dropdown
+
+
+7. Call Customer Button
+What it should do:
+In the Daily Focus section, there's a "Call Sarah M." button. Update it to:
+
+Check if the customer has a phone number in the database
+If phone exists: clicking opens phone dialer on mobile (tel: link) or shows phone number on desktop
+If no phone exists: show message "No phone number on file for this customer"
+Alternatively, just display the phone number as clickable text instead of a button
+
+
+8. Settings Page
+Build a Settings page with 5 tabs:
+Tab 1: Business Profile
+Edit form for:
+
+Business name
+Business type (dropdown)
+Location
+Phone number
+Service area (text or slider)
+Save button that updates user record
+
+Tab 2: Account Settings
+
+Change password section (current password, new password, confirm password fields)
+Email preferences checkboxes:
+
+Weekly performance summary emails
+Competitor price alert emails
+New insights notification emails
+
+
+Timezone dropdown
+Save button for preferences
+
+Tab 3: Subscription & Billing
+Display only (no actions needed yet):
+
+Current plan name
+Current plan price
+Trial days remaining (if on trial)
+Next billing date (if subscribed)
+AI credits remaining
+Placeholder: "Stripe integration coming soon"
+
+Tab 4: Data & Pr...

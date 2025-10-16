@@ -53,8 +53,11 @@ Preferred communication style: Simple, everyday language.
 
 ### Authentication and Authorization
 - **Current**: Custom username/password authentication with Express sessions and PostgreSQL storage
+  - **Signup System**: Comprehensive registration flow collecting business info, credentials, and auto-provisioning 30-day trial
+  - **Password Security**: bcrypt hashing (10 salt rounds) for secure credential storage
+  - **Trial Activation**: New users automatically receive trial tier with 50 jobs/month, 3 competitors, 3 AI credits
+  - **Data Collection**: Business type, location, phone, service area captured during signup
 - **Planned Migration**: Supabase Auth for secure, scalable authentication
-  - Eliminates plaintext password storage (secure bcrypt hashing)
   - Enables Row Level Security policies using `auth.uid()`
   - Provides built-in user management dashboard
   - Supports OAuth providers (Google, GitHub, etc.) and magic links
@@ -64,13 +67,14 @@ Preferred communication style: Simple, everyday language.
 
 **Why Supabase Auth?**
 The application is designed to be platform-agnostic and will be migrated to Cursor and deployed externally. Supabase Auth provides:
-- Industry-standard security (no plaintext passwords)
+- Industry-standard security (already using bcrypt hashing)
 - Built-in user management and analytics
 - Row Level Security integration
 - Works seamlessly outside Replit environment
 
 ### AI Integration Architecture
 - **AI Service**: OpenAI GPT integration for generating business insights
+- **Model**: gpt-4o-mini for cost-optimized business intelligence (15x cheaper than gpt-4)
 - **Analysis Types**: Competitor analysis and pricing optimization recommendations
 - **Data Processing**: Real-time analysis of business data to generate actionable insights
 - **API Structure**: Dedicated AI endpoints with structured request/response schemas using Zod validation
@@ -78,6 +82,7 @@ The application is designed to be platform-agnostic and will be migrated to Curs
   - Tracks: model used, input/output tokens, cost estimates (£), response times, success/failure rates
   - Per-user entitlement tier tracking for usage-based billing
   - Performance analytics and error monitoring
+- **Cost Optimization**: Regenerate Insights uses gpt-4o-mini (~90% cost savings vs gpt-4)
 
 ### Subscription Management Architecture
 - **Pricing Tiers**: Free, Basic (£9/mo), Professional (£19/mo), Premium (£39/mo), Enterprise (£99/mo)

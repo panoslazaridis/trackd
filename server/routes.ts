@@ -347,7 +347,7 @@ Return ONLY a valid JSON array of insights, no additional text.`;
           "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "gpt-4",
+          model: "gpt-4o-mini",
           messages: [
             { role: "system", content: "You are a business analyst providing actionable insights for trades businesses. Always respond with valid JSON arrays only." },
             { role: "user", content: prompt }

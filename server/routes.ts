@@ -258,48 +258,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/insights/:userId", async (req, res) => {
-    try {
-      const insightData = insertInsightSchema.parse(req.body);
-      const insight = await storage.createInsight(req.params.userId, insightData);
-      res.json(insight);
-    } catch (error) {
-      console.error("Error creating insight:", error);
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid insight data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to create insight" });
-    }
-  });
-
-  app.patch("/api/insights/:userId/:id/status", async (req, res) => {
-    try {
-      const { userId, id } = req.params;
-      const { status } = req.body;
-      if (!["active", "completed", "dismissed"].includes(status)) {
-        return res.status(400).json({ error: "Invalid status value" });
-      }
-      const insight = await storage.updateInsightStatus(id, userId, status);
-      res.json(insight);
-    } catch (error) {
-      console.error("Error updating insight status:", error);
-      res.status(500).json({ error: "Failed to update insight status" });
-    }
-  });
-
-  app.delete("/api/insights/:userId/:id", async (req, res) => {
-    try {
-      const { userId, id } = req.params;
-      await storage.deleteInsight(id, userId);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting insight:", error);
-      res.status(500).json({ error: "Failed to delete insight" });
-    }
-  });
-
-  // Regenerate insights with OpenAI
+  // Regenerate insights with OpenAI - MUST come before generic POST route
   app.post("/api/insights/:userId/regenerate", async (req, res) => {
+    console.log("🔄 Regenerate insights endpoint called for userId:", req.params.userId);
     try {
       const { userId } = req.params;
       const startTime = Date.now();
@@ -468,7 +429,9 @@ Return ONLY a valid JSON array of insights, no additional text.`;
 
       res.json({ insights: savedInsights, success: true });
     } catch (error) {
-      console.error("Error regenerating insights:", error);
+      console.error("❌ Error regenerating insights:", error);
+      console.error("Error details:", error instanceof Error ? error.message : String(error));
+      console.error("Stack:", error instanceof Error ? error.stack : "No stack trace");
       
       // Track failed AI request - TODO: Implement trackAIRequest method in storage
       // try {
@@ -485,7 +448,50 @@ Return ONLY a valid JSON array of insights, no additional text.`;
       //   console.error("Error tracking failed AI request:", trackError);
       // }
 
-      res.status(500).json({ error: "Failed to regenerate insights" });
+      res.status(500).json({ 
+        error: "Failed to regenerate insights",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.post("/api/insights/:userId", async (req, res) => {
+    try {
+      const insightData = insertInsightSchema.parse(req.body);
+      const insight = await storage.createInsight(req.params.userId, insightData);
+      res.json(insight);
+    } catch (error) {
+      console.error("Error creating insight:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid insight data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create insight" });
+    }
+  });
+
+  app.patch("/api/insights/:userId/:id/status", async (req, res) => {
+    try {
+      const { userId, id } = req.params;
+      const { status } = req.body;
+      if (!["active", "completed", "dismissed"].includes(status)) {
+        return res.status(400).json({ error: "Invalid status value" });
+      }
+      const insight = await storage.updateInsightStatus(id, userId, status);
+      res.json(insight);
+    } catch (error) {
+      console.error("Error updating insight status:", error);
+      res.status(500).json({ error: "Failed to update insight status" });
+    }
+  });
+
+  app.delete("/api/insights/:userId/:id", async (req, res) => {
+    try {
+      const { userId, id } = req.params;
+      await storage.deleteInsight(id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting insight:", error);
+      res.status(500).json({ error: "Failed to delete insight" });
     }
   });
 

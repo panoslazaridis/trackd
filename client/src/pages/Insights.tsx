@@ -169,7 +169,7 @@ const priorityConfig = {
 };
 
 export default function Insights() {
-  const userId = "test-user-id"; // TODO: Get from auth
+  const userId = "test-user-plumber"; // TODO: Get from auth
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("insights");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");

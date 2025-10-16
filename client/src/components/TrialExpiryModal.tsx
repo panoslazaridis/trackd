@@ -14,43 +14,73 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCurrentUserId } from "@/lib/auth";
 import { differenceInDays } from "date-fns";
+import { formatPrice, type Currency } from "@shared/currency";
 
-const TIER_FEATURES = {
-  basic: {
-    name: "Basic",
-    price: "£9",
-    description: "per month",
-    features: [
-      "50 jobs per month",
-      "5 competitors tracked",
-      "5 AI credits",
-      "Insights every 3 days",
-      "Advanced analytics",
-      "Export reports",
-    ],
-  },
-  pro: {
-    name: "Professional",
-    price: "£19",
-    description: "per month",
-    features: [
-      "Unlimited jobs",
-      "10 competitors tracked",
-      "10 AI credits",
-      "Daily insights",
-      "All analytics features",
-      "Competitor alerts",
-      "WhatsApp integration",
-      "Priority support",
-    ],
-  },
-};
+interface TierConfig {
+  tierName: string;
+  displayName: string;
+  pricing: {
+    gbp: number;
+    eur: number;
+    usd: number;
+  };
+  maxJobsPerMonth: number | null;
+  maxCompetitors: number;
+  aiCreditsPerMonth: number;
+  insightGenerationSchedule: string;
+  features: {
+    advancedAnalytics: boolean;
+    competitorAlerts: boolean;
+    exportReports: boolean;
+    apiAccess: boolean;
+    whatsappIntegration: boolean;
+    prioritySupport: boolean;
+  };
+}
+
+function getTierFeatureList(tier: TierConfig): string[] {
+  const features: string[] = [];
+  
+  if (tier.maxJobsPerMonth === null) {
+    features.push("Unlimited jobs");
+  } else {
+    features.push(`${tier.maxJobsPerMonth} jobs per month`);
+  }
+  
+  features.push(`${tier.maxCompetitors} competitors tracked`);
+  features.push(`${tier.aiCreditsPerMonth} AI credits`);
+  
+  const scheduleMap: Record<string, string> = {
+    'daily': 'Daily insights',
+    'every_3_days': 'Insights every 3 days',
+    'weekly': 'Weekly insights',
+    'monthly': 'Monthly insights',
+  };
+  features.push(scheduleMap[tier.insightGenerationSchedule] || 'Regular insights');
+  
+  if (tier.features.advancedAnalytics) features.push("Advanced analytics");
+  if (tier.features.competitorAlerts) features.push("Competitor alerts");
+  if (tier.features.exportReports) features.push("Export reports");
+  if (tier.features.apiAccess) features.push("API access");
+  if (tier.features.whatsappIntegration) features.push("WhatsApp integration");
+  if (tier.features.prioritySupport) features.push("Priority support");
+  
+  return features;
+}
 
 export default function TrialExpiryModal() {
   const { toast } = useToast();
 
   const { data: subscription } = useQuery<any>({
     queryKey: ["/api/subscription/current"],
+  });
+
+  const { data: tierData } = useQuery<{ tiers: TierConfig[] }>({
+    queryKey: ["/api/config/tiers"],
+  });
+
+  const { data: userData } = useQuery<{ preferredCurrency: Currency }>({
+    queryKey: [`/api/user/${getCurrentUserId()}`],
   });
 
   // Calculate if trial has expired
@@ -92,6 +122,9 @@ export default function TrialExpiryModal() {
     return null;
   }
 
+  const userCurrency = (userData?.preferredCurrency || 'GBP') as Currency;
+  const tiers = (tierData?.tiers || []).filter(t => t.tierName !== 'trial');
+
   return (
     <Dialog open={true} modal>
       <DialogContent 
@@ -109,29 +142,34 @@ export default function TrialExpiryModal() {
         </DialogHeader>
 
         <div className="grid md:grid-cols-2 gap-6 mt-4">
-          {Object.entries(TIER_FEATURES).map(([tier, details]) => (
-            <Card 
-              key={tier} 
-              className={tier === "pro" ? "border-primary shadow-lg" : ""}
-              data-testid={`card-tier-${tier}`}
-            >
-              {tier === "pro" && (
-                <div className="bg-primary text-primary-foreground text-center py-2 text-sm font-medium rounded-t-lg">
-                  Most Popular
-                </div>
-              )}
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>{details.name}</CardTitle>
+          {tiers.map((tier) => {
+            const priceKey = userCurrency.toLowerCase() as 'gbp' | 'eur' | 'usd';
+            const price = tier.pricing[priceKey];
+            const features = getTierFeatureList(tier);
+            
+            return (
+              <Card 
+                key={tier.tierName} 
+                className={tier.tierName === "pro" ? "border-primary shadow-lg" : ""}
+                data-testid={`card-tier-${tier.tierName}`}
+              >
+                {tier.tierName === "pro" && (
+                  <div className="bg-primary text-primary-foreground text-center py-2 text-sm font-medium rounded-t-lg">
+                    Most Popular
+                  </div>
+                )}
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>{tier.displayName}</CardTitle>
                 </div>
                 <div className="mt-4">
-                  <span className="text-4xl font-bold">{details.price}</span>
-                  <span className="text-muted-foreground ml-1">/{details.description}</span>
+                  <span className="text-4xl font-bold">{formatPrice(price, userCurrency)}</span>
+                  <span className="text-muted-foreground ml-1">/month</span>
                 </div>
               </CardHeader>
               <CardContent className="flex-1">
                 <ul className="space-y-2">
-                  {details.features.map((feature, index) => (
+                  {features.map((feature, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <span className="text-sm">{feature}</span>
@@ -142,17 +180,18 @@ export default function TrialExpiryModal() {
               <CardFooter>
                 <Button
                   className="w-full"
-                  variant={tier === "pro" ? "default" : "outline"}
-                  onClick={() => createCheckoutMutation.mutate({ tier })}
+                  variant={tier.tierName === "pro" ? "default" : "outline"}
+                  onClick={() => createCheckoutMutation.mutate({ tier: tier.tierName })}
                   disabled={createCheckoutMutation.isPending}
-                  data-testid={`button-subscribe-${tier}`}
+                  data-testid={`button-subscribe-${tier.tierName}`}
                 >
                   <CreditCard className="mr-2 h-4 w-4" />
-                  Subscribe to {details.name}
+                  Subscribe to {tier.displayName}
                 </Button>
               </CardFooter>
             </Card>
-          ))}
+          );
+          })}
         </div>
 
         <div className="mt-6 p-4 bg-muted rounded-lg">

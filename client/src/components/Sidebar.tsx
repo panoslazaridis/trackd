@@ -38,7 +38,7 @@ export default function Sidebar({ className = "" }: SidebarProps) {
       isCollapsed ? "w-16" : "w-64"
     } ${className}`}>
       {/* Header */}
-      <div className="relative p-4 border-b border-sidebar-border">
+      <div className="relative p-4 border-b border-sidebar-border pt-[2px] pb-[2px] pl-[0px] pr-[0px]">
         {!isCollapsed && (
           <div className="flex items-center justify-center">
             <img 

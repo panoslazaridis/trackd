@@ -276,7 +276,7 @@ export default function Settings() {
 
   const currentTier = subscriptionData?.tier || "trial";
   const currency = formData.currency;
-  const tiers = tiersData?.tiers || [];
+  const tiers = (tiersData?.tiers || []).filter((tier: TierConfig) => tier.tierName !== "premium");
 
   return (
     <div className="p-6">

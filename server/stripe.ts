@@ -1,6 +1,8 @@
 import Stripe from "stripe";
 import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
+import { getTierConfig } from "./airtable";
+import type { Currency } from "@shared/currency";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -10,12 +12,12 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-09-30.clover" as any,
 });
 
-// Stripe pricing tiers mapped to price amounts (in GBP)
-// Updated to 3 tiers: trial (free), basic, pro
-const TIER_PRICES = {
-  trial: 0,
-  basic: 9.00,
-  pro: 19.00,
+// Stripe pricing tiers - will be fetched from Airtable dynamically
+// These are fallback values if Airtable is unavailable
+const FALLBACK_TIER_PRICES = {
+  trial: { gbp: 0, eur: 0, usd: 0 },
+  basic: { gbp: 8.99, eur: 10.99, usd: 12.99 },
+  pro: { gbp: 16.99, eur: 19.99, usd: 23.99 },
 };
 
 export async function registerStripeRoutes(app: Express) {

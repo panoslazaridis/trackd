@@ -11,7 +11,11 @@ const base = process.env.AIRTABLE_API_KEY && process.env.AIRTABLE_BASE_ID
 export interface TierConfig {
   tierName: string; // 'trial', 'basic', 'pro'
   displayName: string;
-  monthlyPriceGbp: number;
+  pricing: {
+    gbp: number;
+    eur: number;
+    usd: number;
+  };
   trialDurationDays?: number;
   maxJobsPerMonth: number | null; // null = unlimited
   maxCompetitors: number;
@@ -34,12 +38,12 @@ const DEFAULT_TIER_CONFIG: TierConfig[] = [
   {
     tierName: 'trial',
     displayName: 'Free Trial',
-    monthlyPriceGbp: 0,
+    pricing: { gbp: 0, eur: 0, usd: 0 },
     trialDurationDays: 30,
-    maxJobsPerMonth: 20,
+    maxJobsPerMonth: 50,
     maxCompetitors: 3,
     aiCreditsPerMonth: 3,
-    insightGenerationSchedule: 'daily',
+    insightGenerationSchedule: 'weekly',
     insightGenerationTime: '09:00',
     aiModel: 'gpt-4o-mini',
     features: {
@@ -54,17 +58,17 @@ const DEFAULT_TIER_CONFIG: TierConfig[] = [
   {
     tierName: 'basic',
     displayName: 'Basic',
-    monthlyPriceGbp: 9,
+    pricing: { gbp: 8.99, eur: 10.99, usd: 12.99 },
     maxJobsPerMonth: 50,
     maxCompetitors: 5,
-    aiCreditsPerMonth: 5,
+    aiCreditsPerMonth: 7,
     insightGenerationSchedule: 'every_3_days',
     insightGenerationTime: '09:00',
     aiModel: 'gpt-4o-mini',
     features: {
-      advancedAnalytics: true,
-      competitorAlerts: false,
-      exportReports: true,
+      advancedAnalytics: false,
+      competitorAlerts: true,
+      exportReports: false,
       apiAccess: false,
       whatsappIntegration: false,
       prioritySupport: false,
@@ -72,11 +76,11 @@ const DEFAULT_TIER_CONFIG: TierConfig[] = [
   },
   {
     tierName: 'pro',
-    displayName: 'Professional',
-    monthlyPriceGbp: 19,
-    maxJobsPerMonth: null, // unlimited
+    displayName: 'Pro',
+    pricing: { gbp: 16.99, eur: 19.99, usd: 23.99 },
+    maxJobsPerMonth: 200,
     maxCompetitors: 10,
-    aiCreditsPerMonth: 10,
+    aiCreditsPerMonth: 20,
     insightGenerationSchedule: 'daily',
     insightGenerationTime: '09:00',
     aiModel: 'gpt-4o-mini',
@@ -132,9 +136,13 @@ export async function fetchTierConfigFromAirtable(): Promise<TierConfig[]> {
     const records = await base('Subscription Tiers').select().all();
     
     const tiers: TierConfig[] = records.map(record => ({
-      tierName: record.get('Tier Name') as string,
+      tierName: (record.get('Tier Name') as string)?.toLowerCase() || '',
       displayName: record.get('Display Name') as string,
-      monthlyPriceGbp: (record.get('Monthly Price') as number) || 0,
+      pricing: {
+        gbp: (record.get('Monthly Price GBP') as number) || 0,
+        eur: (record.get('Monthly Price EUR') as number) || 0,
+        usd: (record.get('Monthly Price USD') as number) || 0,
+      },
       trialDurationDays: record.get('Trial Duration Days') as number | undefined,
       maxJobsPerMonth: record.get('Max Jobs Per Month') 
         ? (record.get('Max Jobs Per Month') as number)

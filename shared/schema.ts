@@ -23,6 +23,7 @@ export const users = pgTable("users", {
   subscriptionTier: text("subscription_tier").default("trial"),
   onboardingStatus: text("onboarding_status").default("incomplete"),
   onboardingStep: integer("onboarding_step").default(0), // 0=not started, 1=business, 2=first job, 3=competitors, 4=complete
+  preferredCurrency: text("preferred_currency").default("GBP"), // GBP, EUR, USD
   monthlyRevenueGoal: decimal("monthly_revenue_goal", { precision: 10, scale: 2 }),
   weeklyHoursTarget: integer("weekly_hours_target"),
   notifications: json("notifications").$type<{

@@ -100,15 +100,23 @@ export async function registerStripeRoutes(app: Express) {
           subscription.stripeSubscriptionId = null as any;
         } else {
         
-        // Calculate new price
-        const basePrice = TIER_PRICES[tier as keyof typeof TIER_PRICES];
+        // Get pricing from Airtable config
+        const tierConfigs = await getTierConfig();
+        const tierConfig = tierConfigs.find(t => t.tierName === tier);
+        if (!tierConfig) {
+          return res.status(400).json({ error: "Invalid tier configuration" });
+        }
+
+        // Get user's preferred currency
+        const currency = (user.preferredCurrency || 'GBP').toLowerCase() as 'gbp' | 'eur' | 'usd';
+        const basePrice = tierConfig.pricing[currency];
         const amount = billingCycle === 'annual' 
           ? Math.round(basePrice * 12 * 0.85) 
           : basePrice;
 
         // Create or get the price
         const price = await stripe.prices.create({
-          currency: 'gbp',
+          currency: currency,
           unit_amount: Math.round(amount * 100),
           recurring: {
             interval: billingCycle === 'annual' ? 'year' : 'month',
@@ -162,8 +170,16 @@ export async function registerStripeRoutes(app: Express) {
         });
       }
 
-      // Calculate price for new subscription
-      const basePrice = TIER_PRICES[tier as keyof typeof TIER_PRICES];
+      // Get pricing from Airtable config for new subscription
+      const tierConfigs = await getTierConfig();
+      const tierConfig = tierConfigs.find(t => t.tierName === tier);
+      if (!tierConfig) {
+        return res.status(400).json({ error: "Invalid tier configuration" });
+      }
+
+      // Get user's preferred currency
+      const currency = (user.preferredCurrency || 'GBP').toLowerCase() as 'gbp' | 'eur' | 'usd';
+      const basePrice = tierConfig.pricing[currency];
       const amount = billingCycle === 'annual' 
         ? Math.round(basePrice * 12 * 0.85)
         : basePrice;
@@ -175,7 +191,7 @@ export async function registerStripeRoutes(app: Express) {
         line_items: [
           {
             price_data: {
-              currency: 'gbp',
+              currency: currency,
               product_data: {
                 name: `TrackD ${tier.charAt(0).toUpperCase() + tier.slice(1)} Plan`,
                 description: `${billingCycle === 'annual' ? 'Annual' : 'Monthly'} subscription`,
@@ -227,12 +243,18 @@ export async function registerStripeRoutes(app: Express) {
       const billingCycle = session.metadata.billingCycle as string;
       const subscription = session.subscription as Stripe.Subscription;
 
+      // Get the price from the subscription
+      const priceAmount = subscription.items.data[0].price.unit_amount || 0;
+      const monthlyPrice = billingCycle === 'annual' 
+        ? (priceAmount / 100 / 12 / 0.85).toFixed(2)  // Reverse annual discount
+        : (priceAmount / 100).toFixed(2);
+
       // Update user subscription in database
       await storage.updateUserSubscription(userId, {
         stripeSubscriptionId: subscription.id,
         subscriptionTier: tier,
         subscriptionStatus: 'active',
-        monthlyPriceGbp: TIER_PRICES[tier as keyof typeof TIER_PRICES].toString(),
+        monthlyPriceGbp: monthlyPrice,
         billingCycle: billingCycle,
         currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
         currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),

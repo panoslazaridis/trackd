@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { Wrench, Zap, Wind, Hammer, Lock, Mail, Phone, MapPin, Building2 } from "lucide-react";
 
 const businessTypes = [
@@ -18,6 +19,7 @@ const businessTypes = [
 export default function Signup() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -95,8 +97,9 @@ export default function Signup() {
         description: "Your 30-day free trial has started. Welcome to TrackD!",
       });
 
-      // Redirect to dashboard
-      window.location.href = "/";
+      // Auto-login the user
+      login(data.userId);
+      setLocation("/");
     } catch (error: any) {
       toast({
         title: "Signup Failed",

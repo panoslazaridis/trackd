@@ -11,7 +11,10 @@ import { useLocation } from "wouter";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getCurrentUserId } from "@/lib/auth";
 import { 
   DollarSign, 
   Clock, 
@@ -22,7 +25,8 @@ import {
   RefreshCw,
   Plus,
   BarChart3,
-  Zap
+  Zap,
+  AlertCircle
 } from "lucide-react";
 import {
   LineChart,
@@ -125,6 +129,12 @@ export default function Dashboard() {
   const [selectedChartsForModal, setSelectedChartsForModal] = useState<string[]>([]);
   const [dashboardCharts, setDashboardCharts] = useState<string[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Fetch jobs to check if empty
+  const userId = getCurrentUserId();
+  const { data: jobs = [] } = useQuery<any[]>({
+    queryKey: [`/api/jobs/${userId}`],
+  });
 
   // Load dashboard charts from localStorage on mount
   useEffect(() => {
@@ -402,6 +412,26 @@ export default function Dashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Empty State Banner */}
+      {jobs.length === 0 && (
+        <Alert className="bg-primary/10 border-primary/20" data-testid="alert-empty-state">
+          <AlertCircle className="h-4 w-4 text-primary" />
+          <AlertTitle className="text-foreground">Get Started with TrackD</AlertTitle>
+          <AlertDescription className="text-muted-foreground">
+            Add jobs to start getting valuable insights about your business performance, pricing, and efficiency.
+            <Button 
+              variant="link" 
+              className="px-1 h-auto text-primary" 
+              onClick={() => setLocation("/jobs")}
+              data-testid="link-add-first-job"
+            >
+              Add your first job
+            </Button>
+            to unlock powerful analytics.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Business Health Check */}
       <BusinessHealthCheck />

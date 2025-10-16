@@ -7,6 +7,7 @@ import ChartInsight from "@/components/ChartInsight";
 import AIInsights from "@/components/AIInsights";
 import { useBusinessContext } from "@/contexts/BusinessContext";
 import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -120,6 +121,7 @@ const availableCharts = [
 export default function Dashboard() {
   const { businessType, getCurrentBusiness, userProfile } = useBusinessContext();
   const currentBusiness = getCurrentBusiness();
+  const [, setLocation] = useLocation();
   const [selectedChartsForModal, setSelectedChartsForModal] = useState<string[]>([]);
   const [dashboardCharts, setDashboardCharts] = useState<string[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -395,7 +397,7 @@ export default function Dashboard() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Button data-testid="button-add-job">
+          <Button onClick={() => setLocation("/jobs")} data-testid="button-add-job">
             Add New Job
           </Button>
         </div>

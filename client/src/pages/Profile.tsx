@@ -10,6 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { businessTypes, BusinessType } from "@/components/BusinessTypeSelector";
 import { useBusinessContext } from "@/contexts/BusinessContext";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getCurrentUserId } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
+import { CURRENCIES, type Currency } from "@shared/currency";
 import { 
   User, 
   Building2, 
@@ -72,6 +77,44 @@ const getBusinessTypeIcon = (typeId: string) => {
 
 export default function Profile() {
   const { businessType, setBusinessType, userProfile, updateProfile } = useBusinessContext();
+  const userId = getCurrentUserId();
+  const { toast } = useToast();
+  
+  // Fetch user data from API
+  const { data: userData } = useQuery<{ preferredCurrency: Currency }>({
+    queryKey: [`/api/user/${userId}`],
+  });
+  
+  const [selectedCurrency, setSelectedCurrency] = useState<Currency>('GBP');
+  
+  // Update selected currency when data loads
+  if (userData?.preferredCurrency && selectedCurrency !== userData.preferredCurrency) {
+    setSelectedCurrency(userData.preferredCurrency as Currency);
+  }
+  
+  // Currency update mutation
+  const updateCurrencyMutation = useMutation({
+    mutationFn: async (currency: Currency) => {
+      const response = await apiRequest("PUT", `/api/user/${userId}/profile`, {
+        preferredCurrency: currency,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Currency Updated",
+        description: "Your preferred currency has been saved successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/user/${userId}`] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update currency preference.",
+        variant: "destructive",
+      });
+    },
+  });
   
   // Only local state for editing mode and notifications (not in context)
   const [isEditing, setIsEditing] = useState(false);
@@ -438,6 +481,35 @@ export default function Profile() {
                 disabled={!isEditing}
                 data-testid="input-weekly-hours"
               />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="currency" className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                Preferred Currency
+              </Label>
+              <Select 
+                value={selectedCurrency} 
+                onValueChange={(value) => {
+                  setSelectedCurrency(value as Currency);
+                  updateCurrencyMutation.mutate(value as Currency);
+                }}
+                disabled={!isEditing}
+              >
+                <SelectTrigger data-testid="select-currency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(CURRENCIES).map(([code, info]) => (
+                    <SelectItem key={code} value={code} data-testid={`option-currency-${code}`}>
+                      {info.symbol} {info.name} ({code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                Used for subscription pricing and financial reports
+              </p>
             </div>
           </CardContent>
         </Card>

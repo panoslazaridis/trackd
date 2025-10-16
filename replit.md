@@ -52,25 +52,35 @@ Preferred communication style: Simple, everyday language.
 - **Scheduled Jobs**: Daily metric refreshes, monthly billing updates, weekly trial checks
 
 ### Authentication and Authorization
-- **Current**: Custom username/password authentication with Express sessions and PostgreSQL storage
+- **Current Implementation**: Custom username/password authentication with localStorage-based session
+  - **Login/Signup Pages**: Full authentication flow with Login (`/login`) and Signup (`/signup`) pages
   - **Signup System**: Comprehensive registration flow collecting business info, credentials, and auto-provisioning 30-day trial
   - **Password Security**: bcrypt hashing (10 salt rounds) for secure credential storage
   - **Trial Activation**: New users automatically receive trial tier with 50 jobs/month, 3 competitors, 3 AI credits
   - **Data Collection**: Business type, location, phone, service area captured during signup
-- **Planned Migration**: Supabase Auth for secure, scalable authentication
-  - Enables Row Level Security policies using `auth.uid()`
-  - Provides built-in user management dashboard
-  - Supports OAuth providers (Google, GitHub, etc.) and magic links
-  - Automatic login tracking via `auth.audit_log_entries`
-- **Security**: Session-based authentication with secure cookie handling (transitioning to JWT)
-- **Development**: Test user (test-user-id) configured for development and testing workflows
+  - **Route Protection**: AuthContext with useAuth hook, redirects unauthenticated users to /login
+  - **Session Management**: userId stored in localStorage, login/logout functions in AuthContext
+  - **Backend Validation**: POST /api/auth/login with bcrypt password verification, POST /api/auth/signup with user creation
+  
+- **Security Limitation (CRITICAL)**: 
+  - ⚠️ **Current auth uses localStorage (client-side) and can be bypassed** by manually setting localStorage values
+  - Backend relies on caller-supplied :userId path parameters without server-side session validation
+  - **NOT production-ready** - Any user can access any other user's data by manipulating localStorage
+  - **Required for Production**: Implement httpOnly session cookies or signed JWTs with server-side validation
+  - Current implementation suitable for **development/demo only**
 
-**Why Supabase Auth?**
-The application is designed to be platform-agnostic and will be migrated to Cursor and deployed externally. Supabase Auth provides:
-- Industry-standard security (already using bcrypt hashing)
-- Built-in user management and analytics
-- Row Level Security integration
-- Works seamlessly outside Replit environment
+- **Planned Migration**: Proper session-based authentication (httpOnly cookies or JWT)
+  - Server-issued, non-forgeable credentials (httpOnly session cookie or signed JWT)
+  - Backend derives user identity from session/token instead of trusting request parameters
+  - Enables Row Level Security policies using authenticated user context
+  - Automatic login tracking and session management
+  
+**Why Proper Session Auth?**
+The application will be migrated to production deployment and requires:
+- Industry-standard security with server-validated sessions
+- Protection against client-side tampering and session hijacking
+- Row Level Security integration for data isolation
+- Works seamlessly in any deployment environment
 
 ### AI Integration Architecture
 - **AI Service**: OpenAI GPT integration for generating business insights

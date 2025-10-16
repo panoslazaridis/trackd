@@ -48,11 +48,9 @@ const getJobTypesForBusiness = (businessType: string) => {
 };
 
 const jobDurations = [
-  "Quick Job (< 2 hours)",
-  "Day Project (2-8 hours)", 
-  "Multi-day (2-5 days)",
-  "Weekly Project",
-  "Monthly Contract",
+  "Multi Day",
+  "Week",
+  "Month",
 ];
 
 const jobStatuses = [
@@ -275,9 +273,7 @@ export default function JobForm({ onSubmit, onCancel, className = "" }: JobFormP
               </Label>
               <Input
                 id="hours"
-                type="number"
-                min="0.1"
-                step="0.5"
+                type="text"
                 placeholder="8.5"
                 value={formData.hours}
                 onChange={(e) => handleInputChange("hours", e.target.value)}
@@ -303,7 +299,7 @@ export default function JobForm({ onSubmit, onCancel, className = "" }: JobFormP
           {/* Project Details */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>Project Duration</Label>
+              <Label>Longer Projects</Label>
               <Select value={formData.duration} onValueChange={(value) => handleInputChange("duration", value)}>
                 <SelectTrigger data-testid="select-duration">
                   <SelectValue placeholder="Select duration" />

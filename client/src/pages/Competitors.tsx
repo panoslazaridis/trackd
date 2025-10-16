@@ -85,18 +85,18 @@ export default function Competitors() {
   const filteredCompetitors = competitors
     .filter(comp => {
       const matchesSearch = comp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           comp.services.some(service => service.toLowerCase().includes(searchTerm.toLowerCase()));
-      const matchesLocation = locationFilter === "all" || comp.location.toLowerCase().includes(locationFilter);
+                           ((comp.services ?? []) as string[]).some(service => service.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesLocation = locationFilter === "all" || (comp.location && comp.location.toLowerCase().includes(locationFilter));
       return matchesSearch && matchesLocation;
     })
     .sort((a, b) => {
       switch (sortBy) {
         case "rating":
-          return b.rating - a.rating;
+          return (parseFloat(b.rating as any ?? "0") - parseFloat(a.rating as any ?? "0"));
         case "rate":
-          return b.averageRate - a.averageRate;
+          return (parseFloat(b.hourlyRate as any ?? "0") - parseFloat(a.hourlyRate as any ?? "0"));
         case "reviews":
-          return b.reviewCount - a.reviewCount;
+          return (b.reviewCount ?? 0) - (a.reviewCount ?? 0);
         default:
           return 0;
       }
@@ -150,9 +150,11 @@ export default function Competitors() {
   };
 
   // Market analysis
-  const avgMarketRate = competitors.reduce((sum, comp) => sum + comp.averageRate, 0) / competitors.length;
-  const competitorsAboveYou = competitors.filter(comp => comp.averageRate > yourAverageRate).length;
-  const competitorsBelowYou = competitors.filter(comp => comp.averageRate < yourAverageRate).length;
+  const avgMarketRate = competitors.length > 0
+    ? competitors.reduce((sum, comp) => sum + parseFloat(comp.hourlyRate as any ?? "0"), 0) / competitors.length
+    : 0;
+  const competitorsAboveYou = competitors.filter(comp => parseFloat(comp.hourlyRate as any ?? "0") > yourAverageRate).length;
+  const competitorsBelowYou = competitors.filter(comp => parseFloat(comp.hourlyRate as any ?? "0") < yourAverageRate).length;
 
   return (
     <div className="p-6 space-y-6">
@@ -301,14 +303,14 @@ export default function Competitors() {
           <CompetitorCard
             key={competitor.id}
             name={competitor.name}
-            location={competitor.location}
-            services={competitor.services}
-            averageRate={competitor.averageRate}
+            location={competitor.location ?? "Unknown"}
+            services={((competitor.services ?? []) as string[])}
+            averageRate={parseFloat(competitor.hourlyRate as any ?? "0")}
             yourRate={yourAverageRate}
             phone={competitor.phone}
             website={competitor.website}
-            rating={competitor.rating}
-            reviewCount={competitor.reviewCount}
+            rating={parseFloat(competitor.rating as any ?? "0")}
+            reviewCount={competitor.reviewCount ?? 0}
             onViewDetails={() => console.log(`View details for ${competitor.name}`)}
           />
         ))}

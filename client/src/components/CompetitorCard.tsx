@@ -32,7 +32,7 @@ export default function CompetitorCard({
 }: CompetitorCardProps) {
   const rateDifference = yourRate - averageRate;
   const isHigher = rateDifference > 0;
-  const differencePercent = Math.abs((rateDifference / averageRate) * 100);
+  const differencePercent = averageRate > 0 ? Math.abs((rateDifference / averageRate) * 100) : 0;
 
   const handleViewDetails = () => {
     console.log(`View details for ${name}`);
@@ -86,25 +86,27 @@ export default function CompetitorCard({
         <div className="bg-muted/30 rounded-lg p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">Average Rate</span>
-            <span className="font-bold">£{averageRate}/hr</span>
+            <span className="font-bold">{averageRate > 0 ? `£${averageRate}/hr` : "N/A"}</span>
           </div>
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-muted-foreground">Your Rate</span>
             <span className="font-medium">£{yourRate}/hr</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Difference</span>
-            <div className={`flex items-center gap-1 font-medium text-sm ${
-              isHigher ? "text-chart-1" : "text-destructive"
-            }`}>
-              {isHigher ? (
-                <TrendingUp className="w-4 h-4" />
-              ) : (
-                <TrendingDown className="w-4 h-4" />
-              )}
-              {isHigher ? "+" : "-"}£{Math.abs(rateDifference).toFixed(0)} ({differencePercent.toFixed(1)}%)
+          {averageRate > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Difference</span>
+              <div className={`flex items-center gap-1 font-medium text-sm ${
+                isHigher ? "text-chart-1" : "text-destructive"
+              }`}>
+                {isHigher ? (
+                  <TrendingUp className="w-4 h-4" />
+                ) : (
+                  <TrendingDown className="w-4 h-4" />
+                )}
+                {isHigher ? "+" : "-"}£{Math.abs(rateDifference).toFixed(0)} ({differencePercent.toFixed(1)}%)
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Contact Info */}

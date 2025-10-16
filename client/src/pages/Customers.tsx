@@ -119,15 +119,19 @@ export default function Customers() {
 
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.preferredServices.some(service => 
+    (customer.email && customer.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    ((customer.preferredServices ?? []) as string[]).some(service => 
       service.toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
 
-  const totalRevenue = customers.reduce((sum, customer) => sum + customer.totalRevenue, 0);
+  const totalRevenue = customers.reduce((sum, customer) => sum + parseFloat(customer.totalRevenue ?? "0"), 0);
+  const totalJobs = customers.reduce((sum, c) => sum + (c.totalJobs ?? 0), 0);
   const activeCustomers = customers.filter(c => c.status === "Active").length;
-  const avgSatisfaction = customers.reduce((sum, customer) => sum + customer.satisfactionScore, 0) / customers.length;
+  const avgSatisfaction = customers.length > 0 
+    ? customers.reduce((sum, customer) => sum + (customer.satisfactionScore ?? 85), 0) / customers.length 
+    : 0;
+  const avgJobValue = totalJobs > 0 ? totalRevenue / totalJobs : 0;
 
   // Create customer mutation
   const createCustomerMutation = useMutation({
@@ -232,7 +236,7 @@ export default function Customers() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              £{Math.round(totalRevenue / customers.reduce((sum, c) => sum + c.totalJobs, 0))}
+              {totalJobs > 0 ? `£${Math.round(avgJobValue)}` : "N/A"}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Per job
@@ -273,10 +277,10 @@ export default function Customers() {
       {/* Customers Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredCustomers.map((customer) => {
-          const statusSettings = statusConfig[customer.status];
-          const daysSinceLastJob = Math.floor(
-            (new Date().getTime() - new Date(customer.lastJobDate).getTime()) / (1000 * 3600 * 24)
-          );
+          const statusSettings = statusConfig[customer.status ?? "New"];
+          const daysSinceLastJob = customer.lastJobDate 
+            ? Math.floor((new Date().getTime() - new Date(customer.lastJobDate).getTime()) / (1000 * 3600 * 24))
+            : null;
 
           return (
             <Card key={customer.id} className="hover-elevate">
@@ -320,11 +324,11 @@ export default function Customers() {
                 {/* Stats */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center">
-                    <div className="text-lg font-bold text-foreground">{customer.totalJobs}</div>
+                    <div className="text-lg font-bold text-foreground">{customer.totalJobs ?? 0}</div>
                     <div className="text-xs text-muted-foreground">Total Jobs</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-lg font-bold text-chart-1">£{customer.totalRevenue.toLocaleString()}</div>
+                    <div className="text-lg font-bold text-chart-1">£{parseFloat(customer.totalRevenue ?? "0").toLocaleString()}</div>
                     <div className="text-xs text-muted-foreground">Revenue</div>
                   </div>
                 </div>
@@ -333,33 +337,37 @@ export default function Customers() {
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-muted-foreground">Satisfaction</span>
-                    <span className="font-medium">{customer.satisfactionScore}%</span>
+                    <span className="font-medium">{customer.satisfactionScore ?? 85}%</span>
                   </div>
-                  <Progress value={customer.satisfactionScore} className="h-2" />
+                  <Progress value={customer.satisfactionScore ?? 85} className="h-2" />
                 </div>
 
                 {/* Preferred Services */}
-                <div>
-                  <div className="text-sm font-medium text-foreground mb-2">Preferred Services</div>
-                  <div className="flex flex-wrap gap-1">
-                    {customer.preferredServices.map((service) => (
-                      <Badge key={service} variant="secondary" className="text-xs">
-                        {service}
-                      </Badge>
-                    ))}
+                {((customer.preferredServices ?? []) as string[]).length > 0 && (
+                  <div>
+                    <div className="text-sm font-medium text-foreground mb-2">Preferred Services</div>
+                    <div className="flex flex-wrap gap-1">
+                      {((customer.preferredServices ?? []) as string[]).map((service) => (
+                        <Badge key={service} variant="secondary" className="text-xs">
+                          {service}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Last Job */}
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    Last job
-                  </span>
-                  <span className="font-medium">
-                    {daysSinceLastJob === 0 ? "Today" : `${daysSinceLastJob} days ago`}
-                  </span>
-                </div>
+                {daysSinceLastJob !== null && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      Last job
+                    </span>
+                    <span className="font-medium">
+                      {daysSinceLastJob === 0 ? "Today" : `${daysSinceLastJob} days ago`}
+                    </span>
+                  </div>
+                )}
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-2">

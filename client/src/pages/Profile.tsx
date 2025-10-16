@@ -162,11 +162,23 @@ export default function Profile() {
 
   const handleSave = () => {
     console.log("Saving profile:", userProfile);
+    
+    // Save currency preference to backend if it changed
+    if (userData?.preferredCurrency !== selectedCurrency) {
+      updateCurrencyMutation.mutate(selectedCurrency);
+    }
+    
     setIsEditing(false);
   };
 
   const handleCancel = () => {
     console.log("Cancel editing profile");
+    
+    // Reset currency selection to saved value
+    if (userData?.preferredCurrency) {
+      setSelectedCurrency(userData.preferredCurrency as Currency);
+    }
+    
     setIsEditing(false);
   };
 
@@ -490,10 +502,7 @@ export default function Profile() {
               </Label>
               <Select 
                 value={selectedCurrency} 
-                onValueChange={(value) => {
-                  setSelectedCurrency(value as Currency);
-                  updateCurrencyMutation.mutate(value as Currency);
-                }}
+                onValueChange={(value) => setSelectedCurrency(value as Currency)}
                 disabled={!isEditing}
               >
                 <SelectTrigger data-testid="select-currency">

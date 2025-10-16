@@ -7,9 +7,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Insight, Job, Customer } from "@shared/schema";
 
 interface HeaderProps {
@@ -36,12 +37,22 @@ export default function Header({ user, className = "" }: HeaderProps) {
     queryKey: [`/api/jobs/${userId}`],
   });
 
-  // Generate notifications from recent data
+  // Mutation to mark insight as viewed
+  const markInsightViewed = useMutation({
+    mutationFn: async (insightId: string) => {
+      return await apiRequest('PATCH', `/api/insights/${userId}/${insightId}`, { viewed: true });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/insights/${userId}`] });
+    },
+  });
+
+  // Generate notifications from recent data - only show unviewed insights
   const notifications = [
-    // Recent insights (last 3)
+    // Unviewed insights (max 5)
     ...insights
-      .filter(i => i.status === 'active' && i.createdAt)
-      .slice(0, 3)
+      .filter(i => i.status === 'active' && i.createdAt && !i.viewed)
+      .slice(0, 5)
       .map(insight => ({
         id: insight.id,
         type: 'insight' as const,
@@ -51,7 +62,7 @@ export default function Header({ user, className = "" }: HeaderProps) {
         link: '/insights',
         icon: Lightbulb,
       })),
-    // Recent jobs (last 2)
+    // Recent jobs (last 2) - jobs are always considered "new" for now
     ...jobs
       .filter(j => j.createdAt)
       .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
@@ -75,7 +86,16 @@ export default function Header({ user, className = "" }: HeaderProps) {
     console.log(`Theme switched to ${!isDark ? "dark" : "light"} mode`);
   };
 
-  const handleNotificationClick = (link: string) => {
+  const handleNotificationClick = async (notificationId: string, type: 'insight' | 'job', link: string) => {
+    // Mark insight as viewed if it's an insight notification
+    if (type === 'insight') {
+      try {
+        await markInsightViewed.mutateAsync(notificationId);
+      } catch (error) {
+        console.error('Failed to mark insight as viewed:', error);
+      }
+    }
+    // Navigate to the link
     navigate(link);
     setNotificationsOpen(false);
   };
@@ -127,7 +147,7 @@ export default function Header({ user, className = "" }: HeaderProps) {
                     return (
                       <button
                         key={notification.id}
-                        onClick={() => handleNotificationClick(notification.link)}
+                        onClick={() => handleNotificationClick(notification.id, notification.type, notification.link)}
                         className="w-full p-4 hover-elevate active-elevate-2 flex items-start gap-3 text-left transition-colors"
                         data-testid={`notification-${index}`}
                       >

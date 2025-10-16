@@ -484,6 +484,38 @@ Return ONLY a valid JSON array of insights, no additional text.`;
     }
   });
 
+  app.patch("/api/insights/:userId/:id", async (req, res) => {
+    try {
+      const { userId, id } = req.params;
+      
+      // Validate request body with Zod
+      const updateSchema = z.object({
+        viewed: z.boolean()
+      });
+      
+      const validationResult = updateSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid request data", 
+          details: validationResult.error.errors 
+        });
+      }
+      
+      const { viewed } = validationResult.data;
+      const insight = await storage.updateInsightViewed(id, userId, viewed);
+      
+      // Return 404 if no insight was found/updated
+      if (!insight) {
+        return res.status(404).json({ error: "Insight not found" });
+      }
+      
+      res.json(insight);
+    } catch (error) {
+      console.error("Error updating insight:", error);
+      res.status(500).json({ error: "Failed to update insight" });
+    }
+  });
+
   app.delete("/api/insights/:userId/:id", async (req, res) => {
     try {
       const { userId, id } = req.params;

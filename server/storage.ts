@@ -45,6 +45,7 @@ export interface IStorage {
   getInsights(userId: string): Promise<Insight[]>;
   createInsight(userId: string, insight: InsertInsight): Promise<Insight>;
   updateInsightStatus(id: string, userId: string, status: "active" | "completed" | "dismissed"): Promise<Insight>;
+  updateInsightViewed(id: string, userId: string, viewed: boolean): Promise<Insight>;
   deleteInsight(id: string, userId: string): Promise<void>;
   
   // Analytics functions
@@ -469,6 +470,15 @@ export class DatabaseStorage implements IStorage {
     return updatedInsight;
   }
 
+  async updateInsightViewed(id: string, userId: string, viewed: boolean): Promise<Insight> {
+    const [updatedInsight] = await db
+      .update(insights)
+      .set({ viewed, updatedAt: new Date() })
+      .where(and(eq(insights.id, id), eq(insights.userId, userId)))
+      .returning();
+    return updatedInsight;
+  }
+
   async deleteInsight(id: string, userId: string): Promise<void> {
     await db
       .delete(insights)
@@ -866,6 +876,7 @@ export class MemStorage implements IStorage {
   async getInsights(): Promise<Insight[]> { return []; }
   async createInsight(): Promise<Insight> { throw new Error("Not implemented in MemStorage"); }
   async updateInsightStatus(): Promise<Insight> { throw new Error("Not implemented in MemStorage"); }
+  async updateInsightViewed(): Promise<Insight> { throw new Error("Not implemented in MemStorage"); }
   async deleteInsight(): Promise<void> { return; }
   async getDashboardMetrics(): Promise<any> { 
     return {

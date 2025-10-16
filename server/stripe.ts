@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
-import { getTierConfig } from "./airtable";
+import { getAllTierConfigs } from "./airtable";
 import type { Currency } from "@shared/currency";
 
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -101,7 +101,7 @@ export async function registerStripeRoutes(app: Express) {
         } else {
         
         // Get pricing from Airtable config
-        const tierConfigs = await getTierConfig();
+        const tierConfigs = await getAllTierConfigs();
         const tierConfig = tierConfigs.find(t => t.tierName === tier);
         if (!tierConfig) {
           return res.status(400).json({ error: "Invalid tier configuration" });
@@ -171,7 +171,7 @@ export async function registerStripeRoutes(app: Express) {
       }
 
       // Get pricing from Airtable config for new subscription
-      const tierConfigs = await getTierConfig();
+      const tierConfigs = await getAllTierConfigs();
       const tierConfig = tierConfigs.find(t => t.tierName === tier);
       if (!tierConfig) {
         return res.status(400).json({ error: "Invalid tier configuration" });

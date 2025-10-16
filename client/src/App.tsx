@@ -15,6 +15,7 @@ import Competitors from "@/pages/Competitors";
 import Profile from "@/pages/Profile";
 import Insights from "@/pages/Insights";
 import Subscription from "@/pages/subscription";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/profile" component={Profile} />
       <Route path="/insights" component={Insights} />
       <Route path="/subscription" component={Subscription} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );

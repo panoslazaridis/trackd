@@ -202,7 +202,13 @@ export default function Header({ user, className = "" }: HeaderProps) {
         </Button>
 
         {/* Settings */}
-        <Button variant="ghost" size="icon" className="hover-elevate" data-testid="button-settings">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="hover-elevate" 
+          onClick={() => navigate('/settings')}
+          data-testid="button-settings"
+        >
           <Settings className="w-4 h-4" />
         </Button>
 

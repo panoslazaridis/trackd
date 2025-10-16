@@ -1,10 +1,17 @@
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import CustomerForm from "@/components/CustomerForm";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getCurrentUserId } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
+import type { Customer } from "@shared/schema";
 import { 
   Users, 
   Search, 
@@ -100,8 +107,15 @@ const statusConfig = {
 };
 
 export default function Customers() {
-  const [customers] = useState(mockCustomers);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const userId = getCurrentUserId();
+  const { toast } = useToast();
+
+  // Fetch customers from API
+  const { data: customers = [], isLoading } = useQuery<Customer[]>({
+    queryKey: [`/api/customers/${userId}`],
+  });
 
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -115,8 +129,45 @@ export default function Customers() {
   const activeCustomers = customers.filter(c => c.status === "Active").length;
   const avgSatisfaction = customers.reduce((sum, customer) => sum + customer.satisfactionScore, 0) / customers.length;
 
+  // Create customer mutation
+  const createCustomerMutation = useMutation({
+    mutationFn: async (customerData: any) => {
+      const response = await apiRequest("POST", `/api/customers/${userId}`, {
+        name: customerData.name,
+        email: customerData.email || null,
+        phone: customerData.phone || null,
+        address: customerData.address || null,
+        customerType: customerData.customerType,
+        notes: customerData.notes || null,
+        totalRevenue: "0",
+        totalJobs: 0,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/customers/${userId}`] });
+      toast({
+        title: "Success",
+        description: "Customer added successfully",
+      });
+      setIsDialogOpen(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to add customer",
+        variant: "destructive",
+      });
+      console.error("Error creating customer:", error);
+    },
+  });
+
   const handleAddCustomer = () => {
-    console.log("Add new customer");
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmitCustomer = (customerData: any) => {
+    createCustomerMutation.mutate(customerData);
   };
 
   const handleContactCustomer = (customerId: string, method: 'phone' | 'email') => {
@@ -352,6 +403,19 @@ export default function Customers() {
           </CardContent>
         </Card>
       )}
+
+      {/* Add Customer Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add New Customer</DialogTitle>
+          </DialogHeader>
+          <CustomerForm
+            onSubmit={handleSubmitCustomer}
+            onCancel={() => setIsDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

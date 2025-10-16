@@ -1,10 +1,17 @@
 import CompetitorCard from "@/components/CompetitorCard";
+import CompetitorForm from "@/components/CompetitorForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Search, MapPin, TrendingUp, AlertTriangle } from "lucide-react";
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getCurrentUserId } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
+import type { Competitor } from "@shared/schema";
 
 // Mock competitor data - TODO: remove mock functionality
 const mockCompetitors = [
@@ -62,11 +69,18 @@ const mockCompetitors = [
 ];
 
 export default function Competitors() {
-  const [competitors] = useState(mockCompetitors);
   const [searchTerm, setSearchTerm] = useState("");
   const [locationFilter, setLocationFilter] = useState("all");
   const [sortBy, setSortBy] = useState("rating");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const userId = getCurrentUserId();
+  const { toast } = useToast();
   const yourAverageRate = 55; // TODO: Calculate from actual job data
+
+  // Fetch competitors from API
+  const { data: competitors = [], isLoading } = useQuery<Competitor[]>({
+    queryKey: [`/api/competitors/${userId}`],
+  });
 
   const filteredCompetitors = competitors
     .filter(comp => {
@@ -88,8 +102,47 @@ export default function Competitors() {
       }
     });
 
+  // Create competitor mutation
+  const createCompetitorMutation = useMutation({
+    mutationFn: async (competitorData: any) => {
+      const response = await apiRequest("POST", `/api/competitors/${userId}`, {
+        name: competitorData.businessName,
+        location: competitorData.location,
+        services: competitorData.servicesOffered,
+        website: competitorData.websiteUrl || null,
+        phone: competitorData.phone || null,
+        notes: competitorData.notes || null,
+        emergencyCalloutFee: competitorData.emergencyCallRate ? parseFloat(competitorData.emergencyCallRate) : null,
+        hourlyRate: competitorData.standardHourlyRate ? parseFloat(competitorData.standardHourlyRate) : null,
+        calloutFee: competitorData.callOutFee ? parseFloat(competitorData.callOutFee) : null,
+        isActive: true,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/competitors/${userId}`] });
+      toast({
+        title: "Success",
+        description: "Competitor added successfully",
+      });
+      setIsDialogOpen(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to add competitor",
+        variant: "destructive",
+      });
+      console.error("Error creating competitor:", error);
+    },
+  });
+
   const handleAddCompetitor = () => {
-    console.log("Add new competitor manually");
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmitCompetitor = (competitorData: any) => {
+    createCompetitorMutation.mutate(competitorData);
   };
 
   const handleDiscoverCompetitors = () => {
@@ -277,6 +330,19 @@ export default function Competitors() {
           </CardContent>
         </Card>
       )}
+
+      {/* Add Competitor Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Competitor</DialogTitle>
+          </DialogHeader>
+          <CompetitorForm
+            onSubmit={handleSubmitCompetitor}
+            onCancel={() => setIsDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

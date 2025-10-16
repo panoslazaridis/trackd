@@ -173,7 +173,7 @@ export default function Subscription() {
 
   const currentSubscription = data?.subscription;
   const currentTier = currentSubscription?.subscriptionTier || "trial";
-  const tiers = tierData?.tiers || [];
+  const tiers = (tierData?.tiers || []).filter(tier => tier.tierName !== "premium");
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -192,17 +192,6 @@ export default function Subscription() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-lg font-semibold">
-                  {tiers.find(t => t.tierName === currentTier)?.displayName || currentTier}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {currentSubscription.monthlyPriceGbp ? `${formatPrice(parseFloat(currentSubscription.monthlyPriceGbp), userCurrency)}/month` : ""}
-                </p>
-                <Badge variant={currentSubscription.subscriptionStatus === "active" ? "default" : "secondary"} className="mt-2">
-                  {currentSubscription.subscriptionStatus}
-                </Badge>
-              </div>
               <div className="flex gap-2">
                 {currentSubscription.cancelAtPeriodEnd ? (
                   <Button

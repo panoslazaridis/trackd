@@ -298,6 +298,197 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Regenerate insights with OpenAI
+  app.post("/api/insights/:userId/regenerate", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const startTime = Date.now();
+
+      // Fetch last 30 days of data
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const jobs = await storage.getJobs(userId);
+      const customers = await storage.getCustomers(userId);
+      const competitors = await storage.getCompetitors(userId);
+
+      // Filter jobs to last 30 days
+      const recentJobs = jobs.filter(job => new Date(job.date) >= thirtyDaysAgo);
+
+      // Calculate metrics
+      const jobsByType: { [key: string]: { totalRevenue: number; totalHours: number; count: number } } = {};
+      recentJobs.forEach(job => {
+        if (!jobsByType[job.jobType]) {
+          jobsByType[job.jobType] = { totalRevenue: 0, totalHours: 0, count: 0 };
+        }
+        jobsByType[job.jobType].totalRevenue += parseFloat(job.revenue);
+        jobsByType[job.jobType].totalHours += parseFloat(job.hours);
+        jobsByType[job.jobType].count += 1;
+      });
+
+      const avgRatesByType = Object.entries(jobsByType).map(([type, data]) => ({
+        type,
+        avgRate: data.totalHours > 0 ? data.totalRevenue / data.totalHours : 0,
+        jobCount: data.count,
+      }));
+
+      const customerRevenue = customers.map(c => ({
+        name: c.name,
+        revenue: parseFloat(c.totalRevenue ?? "0"),
+        jobs: c.totalJobs ?? 0,
+      })).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+
+      const competitorRates = competitors.map(c => ({
+        name: c.name,
+        hourlyRate: parseFloat(c.hourlyRate as any ?? "0"),
+      }));
+
+      // Prepare prompt for OpenAI
+      const prompt = `You are a business analyst for a trades business (plumbing, electrical, HVAC, or handyman). Analyze the following data and provide 3-5 actionable business insights.
+
+**Business Data (Last 30 Days):**
+
+**Jobs by Type:**
+${avgRatesByType.map(t => `- ${t.type}: ${t.jobCount} jobs, avg rate £${t.avgRate.toFixed(2)}/hr`).join('\n')}
+
+**Top Customers by Revenue:**
+${customerRevenue.map(c => `- ${c.name}: £${c.revenue.toFixed(2)} (${c.jobs} jobs)`).join('\n')}
+
+**Competitor Rates:**
+${competitorRates.map(c => `- ${c.name}: £${c.hourlyRate}/hr`).join('\n')}
+
+**Total Jobs:** ${recentJobs.length}
+**Total Revenue:** £${recentJobs.reduce((sum, j) => sum + parseFloat(j.revenue), 0).toFixed(2)}
+**Total Hours:** ${recentJobs.reduce((sum, j) => sum + parseFloat(j.hours), 0).toFixed(1)}
+
+Provide 3-5 insights focusing on:
+1. Pricing opportunities (undercharging or overcharging)
+2. Customer value analysis (which customers to prioritize)
+3. Efficiency gaps (where time is wasted)
+4. Competitive positioning
+
+For each insight, return a JSON object with:
+- title (string, max 60 chars)
+- description (string, max 200 chars)
+- action (string, specific recommendation, max 100 chars)
+- impact (string, quantifiable benefit, max 80 chars)
+- priority ("high", "medium", or "low")
+- type ("pricing", "customer", "efficiency", or "market")
+- category (string, max 40 chars)
+
+Return ONLY a valid JSON array of insights, no additional text.`;
+
+      // Call OpenAI
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4",
+          messages: [
+            { role: "system", content: "You are a business analyst providing actionable insights for trades businesses. Always respond with valid JSON arrays only." },
+            { role: "user", content: prompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.statusText}`);
+      }
+
+      const aiResponse = await response.json();
+      const content = aiResponse.choices[0].message.content;
+      
+      // Parse AI response
+      let aiInsights;
+      try {
+        aiInsights = JSON.parse(content);
+        
+        // Validate each insight has required fields
+        if (!Array.isArray(aiInsights)) {
+          throw new Error("AI response is not an array");
+        }
+        
+        aiInsights = aiInsights.filter(insight => {
+          if (!insight.title || !insight.action || !insight.impact) {
+            console.warn("Skipping invalid insight:", insight);
+            return false;
+          }
+          return true;
+        });
+
+        if (aiInsights.length === 0) {
+          throw new Error("No valid insights in AI response");
+        }
+      } catch (parseError) {
+        console.error("Failed to parse AI response:", content);
+        throw new Error("Invalid AI response format");
+      }
+
+      const duration = Date.now() - startTime;
+      const inputTokens = aiResponse.usage?.prompt_tokens ?? 0;
+      const outputTokens = aiResponse.usage?.completion_tokens ?? 0;
+
+      // Track AI usage - TODO: Implement trackAIRequest method in storage
+      // await storage.trackAIRequest({
+      //   userId,
+      //   model: "gpt-4",
+      //   inputTokens,
+      //   outputTokens,
+      //   cost: ((inputTokens * 0.00003) + (outputTokens * 0.00006)).toFixed(4),
+      //   duration,
+      //   success: true,
+      // });
+
+      // Delete old insights
+      const oldInsights = await storage.getInsights(userId);
+      for (const insight of oldInsights) {
+        await storage.deleteInsight(insight.id, userId);
+      }
+
+      // Save new insights
+      const savedInsights = [];
+      for (const aiInsight of aiInsights) {
+        const insight = await storage.createInsight(userId, {
+          type: aiInsight.type ?? "pricing",
+          priority: aiInsight.priority ?? "medium",
+          title: aiInsight.title,
+          description: aiInsight.description,
+          impact: aiInsight.impact,
+          action: aiInsight.action,
+          category: aiInsight.category ?? "Business Analysis",
+          status: "active",
+        });
+        savedInsights.push(insight);
+      }
+
+      res.json({ insights: savedInsights, success: true });
+    } catch (error) {
+      console.error("Error regenerating insights:", error);
+      
+      // Track failed AI request - TODO: Implement trackAIRequest method in storage
+      // try {
+      //   await storage.trackAIRequest({
+      //     userId: req.params.userId,
+      //     model: "gpt-4",
+      //     inputTokens: 0,
+      //     outputTokens: 0,
+      //     cost: "0",
+      //     duration: Date.now() - Date.now(),
+      //     success: false,
+      //   });
+      // } catch (trackError) {
+      //   console.error("Error tracking failed AI request:", trackError);
+      // }
+
+      res.status(500).json({ error: "Failed to regenerate insights" });
+    }
+  });
+
   // Analytics routes
   app.get("/api/analytics/dashboard/:userId", async (req, res) => {
     try {

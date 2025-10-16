@@ -127,7 +127,7 @@ export const insights = pgTable("insights", {
   type: text("type").notNull(), // pricing, efficiency, customer, market, competitor
   priority: text("priority").notNull(), // high, medium, low
   title: text("title").notNull(),
-  description: text("description").notNull(),
+  description: text("description"), // Optional - not displayed in current UI
   recommendation: text("recommendation"),
   impact: text("impact"),
   impactScore: integer("impact_score"),

@@ -6,6 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Lightbulb, 
   TrendingUp, 
@@ -166,34 +169,52 @@ const priorityConfig = {
 };
 
 export default function Insights() {
-  const [insights, setInsights] = useState(mockInsights);
+  const userId = "test-user-id"; // TODO: Get from auth
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("insights");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
 
+  // Fetch insights from API
+  const { data: insights = [], isLoading } = useQuery<Insight[]>({
+    queryKey: [`/api/insights/${userId}`],
+  });
+
+  // Regenerate insights mutation
+  const regenerateMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest({
+        url: `/api/insights/${userId}/regenerate`,
+        method: "POST",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/insights/${userId}`] });
+      toast({
+        title: "Insights Regenerated",
+        description: "Your business insights have been updated with the latest data.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to regenerate insights. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleTakeAction = (insightId: string) => {
     console.log("Taking action on insight:", insightId);
-    setInsights(prev => 
-      prev.map(insight => 
-        insight.id === insightId 
-          ? { ...insight, status: "completed" as const }
-          : insight
-      )
-    );
+    // Update status via API
   };
 
   const handleDismissInsight = (insightId: string) => {
     console.log("Dismissing insight:", insightId);
-    setInsights(prev =>
-      prev.map(insight =>
-        insight.id === insightId
-          ? { ...insight, status: "dismissed" as const }
-          : insight
-      )
-    );
+    // Update status via API
   };
 
   const handleRefreshInsights = () => {
-    console.log("Refreshing insights...");
+    regenerateMutation.mutate();
   };
 
   const filteredInsights = insights.filter(insight => {
@@ -225,9 +246,14 @@ export default function Insights() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleRefreshInsights} data-testid="button-refresh-insights">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
+          <Button 
+            variant="outline" 
+            onClick={handleRefreshInsights} 
+            disabled={regenerateMutation.isPending}
+            data-testid="button-regenerate-insights"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${regenerateMutation.isPending ? 'animate-spin' : ''}`} />
+            {regenerateMutation.isPending ? 'Generating...' : 'Regenerate'}
           </Button>
           <Button variant="outline" data-testid="button-insight-settings">
             <Filter className="w-4 h-4 mr-2" />
@@ -347,8 +373,7 @@ export default function Insights() {
                 <InsightCard
                   type={insight.type}
                   priority={insight.priority}
-                  title={insight.title}
-                  description={insight.description}
+                  problem={insight.title}
                   impact={insight.impact}
                   action={insight.action}
                   onTakeAction={() => handleTakeAction(insight.id)}
@@ -510,8 +535,7 @@ export default function Insights() {
                 <InsightCard
                   type={insight.type}
                   priority={insight.priority}
-                  title={insight.title}
-                  description={insight.description}
+                  problem={insight.title}
                   impact={insight.impact}
                   action={insight.action}
                   onTakeAction={() => handleTakeAction(insight.id)}
@@ -539,8 +563,7 @@ export default function Insights() {
                 key={insight.id}
                 type={insight.type}
                 priority={insight.priority}
-                title={insight.title}
-                description={insight.description}
+                problem={insight.title}
                 impact={insight.impact}
                 action="Completed ✓"
               />

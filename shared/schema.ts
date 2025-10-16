@@ -378,6 +378,18 @@ export const subscriptionEventsRelations = relations(subscriptionEvents, ({ one 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  email: true,
+  businessName: true,
+  ownerName: true,
+  businessType: true,
+  phone: true,
+  location: true,
+  serviceArea: true,
+  subscriptionTier: true,
+  onboardingStatus: true,
+  teamSize: true,
+  specializations: true,
+  notifications: true,
 });
 
 export const updateUserProfileSchema = createInsertSchema(users).omit({

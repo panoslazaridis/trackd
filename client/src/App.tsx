@@ -16,11 +16,13 @@ import Profile from "@/pages/Profile";
 import Insights from "@/pages/Insights";
 import Subscription from "@/pages/subscription";
 import Settings from "@/pages/Settings";
+import Signup from "@/pages/Signup";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
     <Switch>
+      <Route path="/signup" component={Signup} />
       <Route path="/" component={Dashboard} />
       <Route path="/jobs" component={Jobs} />
       <Route path="/customers" component={Customers} />

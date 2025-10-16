@@ -6,6 +6,7 @@ import { generateCompetitorAnalysis, generatePricingAnalysis } from "./ai";
 import { registerStripeRoutes } from "./stripe";
 import { registerConfigRoutes } from "./config";
 import { z } from "zod";
+import bcrypt from "bcrypt";
 import { 
   insertJobSchema, 
   insertCustomerSchema, 
@@ -14,6 +15,19 @@ import {
   updateUserProfileSchema,
   type Job 
 } from "@shared/schema";
+
+// Schema for signup request
+const signupSchema = z.object({
+  username: z.string().min(3),
+  email: z.string().email(),
+  password: z.string().min(8),
+  businessName: z.string().min(1),
+  ownerName: z.string().min(1),
+  businessType: z.string().min(1),
+  phone: z.string().min(1),
+  location: z.string().min(1),
+  serviceArea: z.string().min(1),
+});
 
 // Schema for AI analysis requests
 const competitorAnalysisSchema = z.object({
@@ -33,6 +47,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Health check
   app.get("/health", (req, res) => {
     res.json({ status: "OK", timestamp: new Date().toISOString() });
+  });
+
+  // Signup endpoint
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      // Validate request body
+      const signupData = signupSchema.parse(req.body);
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByUsername(signupData.username);
+      if (existingUser) {
+        return res.status(400).json({ error: "User already exists" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(signupData.password, 10);
+
+      // Create user
+      const user = await storage.createUser({
+        username: signupData.username,
+        password: hashedPassword,
+        email: signupData.email,
+        businessName: signupData.businessName,
+        ownerName: signupData.ownerName,
+        businessType: signupData.businessType,
+        phone: signupData.phone,
+        location: signupData.location,
+        serviceArea: signupData.serviceArea,
+        subscriptionTier: "trial", // Set to trial tier
+        onboardingStatus: "incomplete",
+        teamSize: 1,
+        specializations: [],
+        notifications: {
+          competitorAlerts: true,
+          insightDigest: true,
+          jobReminders: false,
+          marketingTips: true,
+          emailNotifications: true,
+          smsNotifications: false,
+        },
+      });
+
+      // Create trial subscription (30 days)
+      const trialStartDate = new Date();
+      const trialEndDate = new Date();
+      trialEndDate.setDate(trialEndDate.getDate() + 30);
+
+      await storage.updateUserSubscription(user.id, {
+        subscriptionTier: "trial",
+        subscriptionStatus: "trialing",
+        trialActive: true,
+        trialStartDate,
+        trialEndDate,
+        currency: "GBP", // Default to GBP, can be changed in settings
+        billingCycle: "monthly",
+        monthlyPriceGbp: "0",
+        maxJobsPerMonth: 50, // Trial limits
+        maxCompetitors: 3,
+        aiParsingCreditsMonthly: 3,
+      });
+
+      console.log(`✅ New user signed up: ${user.username} (${user.id}) - 30-day trial created`);
+
+      res.status(201).json({
+        success: true,
+        message: "Account created successfully",
+        userId: user.id,
+      });
+    } catch (error) {
+      console.error("Signup error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Invalid signup data", 
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ error: "Failed to create account" });
+    }
   });
 
   // AI Analysis routes

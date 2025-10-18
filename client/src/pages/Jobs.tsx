@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Upload, BarChart3 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Job } from "@shared/schema";
 
 // Job status type for consistency
@@ -18,17 +19,19 @@ export default function Jobs() {
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { userId } = useAuth();
   
   // Fetch jobs from API
   const { data: jobs = [], isLoading, error } = useQuery({
-    queryKey: ['/api/jobs'],
-    queryFn: () => fetch('/api/jobs').then(res => res.json()),
+    queryKey: ['/api/jobs', userId],
+    queryFn: () => fetch(`/api/jobs/${userId}`).then(res => res.json()),
+    enabled: !!userId,
   });
   
   // Create job mutation
   const createJobMutation = useMutation({
     mutationFn: async (jobData: any) => {
-      const response = await fetch('/api/jobs', {
+      const response = await fetch(`/api/jobs/${userId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(jobData),
@@ -37,7 +40,7 @@ export default function Jobs() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs', userId] });
       toast({ title: "Success", description: "Job created successfully" });
       setIsFormOpen(false);
     },
@@ -54,7 +57,7 @@ export default function Jobs() {
   // Update job mutation
   const updateJobMutation = useMutation({
     mutationFn: async ({ id, ...jobData }: any) => {
-      const response = await fetch(`/api/jobs/${id}`, {
+      const response = await fetch(`/api/jobs/${userId}/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(jobData),
@@ -63,7 +66,7 @@ export default function Jobs() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs', userId] });
       toast({ title: "Success", description: "Job updated successfully" });
       setIsFormOpen(false);
       setEditingJob(null);
@@ -81,14 +84,14 @@ export default function Jobs() {
   // Delete job mutation
   const deleteJobMutation = useMutation({
     mutationFn: async (jobId: string) => {
-      const response = await fetch(`/api/jobs/${jobId}`, {
+      const response = await fetch(`/api/jobs/${userId}/${jobId}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Failed to delete job');
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs', userId] });
       toast({ title: "Success", description: "Job deleted successfully" });
     },
     onError: (error) => {

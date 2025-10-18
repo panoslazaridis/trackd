@@ -133,7 +133,9 @@ export default function Dashboard() {
   // Fetch jobs to check if empty
   const userId = getCurrentUserId();
   const { data: jobs = [] } = useQuery<any[]>({
-    queryKey: [`/api/jobs/${userId}`],
+    queryKey: ['/api/jobs', userId],
+    queryFn: () => fetch(`/api/jobs/${userId}`).then(res => res.json()),
+    enabled: !!userId,
   });
 
   // Load dashboard charts from localStorage on mount

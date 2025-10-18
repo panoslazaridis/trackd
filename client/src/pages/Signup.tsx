@@ -7,13 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Wrench, Zap, Wind, Hammer, Lock, Mail, Phone, MapPin, Building2 } from "lucide-react";
+import { Wrench, Zap, Wind, Hammer, Lock, Mail, Phone, MapPin, Building2, MoreHorizontal } from "lucide-react";
 
 const businessTypes = [
   { id: "plumbing", name: "Plumbing Services", icon: Wrench },
   { id: "electrical", name: "Electrical Services", icon: Zap },
   { id: "hvac", name: "HVAC Services", icon: Wind },
   { id: "handyman", name: "Handyman Services", icon: Hammer },
+  { id: "other", name: "Other", icon: MoreHorizontal },
 ];
 
 export default function Signup() {
@@ -29,7 +30,9 @@ export default function Signup() {
     businessName: "",
     ownerName: "",
     businessType: "",
+    businessTypeOther: "",
     phone: "",
+    postcode: "",
     location: "",
     serviceArea: "",
   });
@@ -80,7 +83,9 @@ export default function Signup() {
           businessName: formData.businessName,
           ownerName: formData.ownerName,
           businessType: formData.businessType,
+          businessTypeOther: formData.businessType === "other" ? formData.businessTypeOther : undefined,
           phone: formData.phone,
+          postcode: formData.postcode,
           location: formData.location,
           serviceArea: formData.serviceArea,
         }),
@@ -180,6 +185,20 @@ export default function Signup() {
                 </Select>
               </div>
 
+              {formData.businessType === "other" && (
+                <div className="space-y-2">
+                  <Label htmlFor="businessTypeOther">Specify Business Type *</Label>
+                  <Input
+                    id="businessTypeOther"
+                    placeholder="e.g., Carpentry, Landscaping"
+                    value={formData.businessTypeOther}
+                    onChange={(e) => setFormData({ ...formData, businessTypeOther: e.target.value })}
+                    required
+                    data-testid="input-business-type-other"
+                  />
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="phone" className="flex items-center gap-2">
@@ -198,19 +217,37 @@ export default function Signup() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="location" className="flex items-center gap-2">
+                  <Label htmlFor="postcode" className="flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
-                    Location *
+                    Postcode *
                   </Label>
                   <Input
-                    id="location"
-                    placeholder="e.g., Manchester"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    id="postcode"
+                    placeholder="e.g., M1 1AE"
+                    value={formData.postcode}
+                    onChange={(e) => setFormData({ ...formData, postcode: e.target.value })}
                     required
-                    data-testid="input-location"
+                    data-testid="input-postcode"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    We use your postcode to find relevant competitors in your area
+                  </p>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="location" className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Location *
+                </Label>
+                <Input
+                  id="location"
+                  placeholder="e.g., Manchester"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  required
+                  data-testid="input-location"
+                />
               </div>
 
               <div className="space-y-2">

@@ -24,7 +24,9 @@ const signupSchema = z.object({
   businessName: z.string().min(1),
   ownerName: z.string().min(1),
   businessType: z.string().min(1),
+  businessTypeOther: z.string().optional(),
   phone: z.string().min(1),
+  postcode: z.string().min(1),
   location: z.string().min(1),
   serviceArea: z.string().min(1),
 });
@@ -58,7 +60,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if user already exists
       const existingUser = await storage.getUserByUsername(signupData.username);
       if (existingUser) {
-        return res.status(400).json({ error: "User already exists" });
+        return res.status(400).json({ error: "An account with this email already exists. Please login instead." });
       }
 
       // Hash password
@@ -72,7 +74,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         businessName: signupData.businessName,
         ownerName: signupData.ownerName,
         businessType: signupData.businessType,
+        businessTypeOther: signupData.businessTypeOther,
         phone: signupData.phone,
+        postcode: signupData.postcode,
         location: signupData.location,
         serviceArea: signupData.serviceArea,
         subscriptionTier: "trial", // Set to trial tier
@@ -118,12 +122,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Signup error:", error);
       if (error instanceof z.ZodError) {
+        const fieldErrors = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
         return res.status(400).json({ 
-          error: "Invalid signup data", 
-          details: error.errors 
+          error: `Please check your information: ${fieldErrors}` 
         });
       }
-      res.status(500).json({ error: "Failed to create account" });
+      if (error instanceof Error) {
+        return res.status(500).json({ error: `Failed to create account: ${error.message}` });
+      }
+      res.status(500).json({ error: "Failed to create account. Please try again." });
     }
   });
 

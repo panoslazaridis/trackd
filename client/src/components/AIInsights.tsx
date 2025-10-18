@@ -21,6 +21,7 @@ interface AIInsightsProps {
   location: string;
   currentRate: number;
   services: string[];
+  jobCount: number;
   className?: string;
 }
 
@@ -34,7 +35,8 @@ export default function AIInsights({
   businessType, 
   location, 
   currentRate, 
-  services, 
+  services,
+  jobCount,
   className = "" 
 }: AIInsightsProps) {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -206,13 +208,36 @@ export default function AIInsights({
           </TabsContent>
           
           <TabsContent value="pricing" className="space-y-4">
-            {renderAnalysisCard(
-              "Pricing Strategy",
-              "Recommendations for optimal pricing based on market data",
-              TrendingUp,
-              pricingData,
-              pricingLoading,
-              pricingError
+            {jobCount >= 5 ? (
+              renderAnalysisCard(
+                "Pricing Strategy",
+                "Recommendations for optimal pricing based on market data",
+                TrendingUp,
+                pricingData,
+                pricingLoading,
+                pricingError
+              )
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-muted-foreground" />
+                    Pricing Strategy
+                  </CardTitle>
+                  <CardDescription>
+                    Recommendations for optimal pricing based on market data
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                  <DollarSign className="w-12 h-12 text-muted-foreground mb-3 opacity-50" />
+                  <p className="text-muted-foreground mb-2">
+                    Add at least 5 jobs to unlock AI-powered pricing recommendations
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    You currently have {jobCount} job{jobCount !== 1 ? 's' : ''} logged
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
         </Tabs>

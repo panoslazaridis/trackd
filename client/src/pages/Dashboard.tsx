@@ -414,88 +414,202 @@ export default function Dashboard() {
       </div>
 
       {/* Empty State Banner */}
-      {jobs.length === 0 && (
+      {jobs.length < 5 && (
         <Alert className="bg-primary/10 border-primary/20" data-testid="alert-empty-state">
           <AlertCircle className="h-4 w-4 text-primary" />
-          <AlertTitle className="text-foreground">Get Started with TrackD</AlertTitle>
+          <AlertTitle className="text-foreground">
+            {jobs.length === 0 ? "Get Started with TrackD" : `Add ${5 - jobs.length} More Jobs to Unlock Insights`}
+          </AlertTitle>
           <AlertDescription className="text-muted-foreground">
-            Add jobs to start getting valuable insights about your business performance, pricing, and efficiency.
-            <Button 
-              variant="link" 
-              className="px-1 h-auto text-primary" 
-              onClick={() => setLocation("/jobs")}
-              data-testid="link-add-first-job"
-            >
-              Add your first job
-            </Button>
-            to unlock powerful analytics.
+            {jobs.length === 0 ? (
+              <>
+                Add jobs to start getting valuable insights about your business performance, pricing, and efficiency.
+                <Button 
+                  variant="link" 
+                  className="px-1 h-auto text-primary" 
+                  onClick={() => setLocation("/jobs")}
+                  data-testid="link-add-first-job"
+                >
+                  Add your first job
+                </Button>
+                to unlock powerful analytics.
+              </>
+            ) : (
+              <>
+                You have {jobs.length} job{jobs.length !== 1 ? 's' : ''} logged. Add {5 - jobs.length} more to unlock revenue analytics, pricing insights, and performance metrics.
+                <Button 
+                  variant="link" 
+                  className="px-1 h-auto text-primary" 
+                  onClick={() => setLocation("/jobs")}
+                  data-testid="link-add-more-jobs"
+                >
+                  Add more jobs
+                </Button>
+              </>
+            )}
           </AlertDescription>
         </Alert>
       )}
 
       {/* Business Health Check */}
-      <BusinessHealthCheck />
+      {jobs.length >= 5 ? (
+        <BusinessHealthCheck />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-muted-foreground" />
+              Business Health Check
+            </CardTitle>
+            <CardDescription>
+              Overall business performance metrics
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+            <Target className="w-12 h-12 text-muted-foreground mb-3 opacity-50" />
+            <p className="text-muted-foreground mb-2">
+              Add at least 5 jobs to see your business health metrics
+            </p>
+            <Button variant="outline" size="sm" onClick={() => setLocation("/jobs")} data-testid="button-add-jobs-health">
+              <Plus className="w-4 h-4 mr-1" />
+              Add Jobs
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Daily Focus */}
-      <DailyFocus />
+      {jobs.length >= 5 ? (
+        <DailyFocus />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-muted-foreground" />
+              Daily Focus
+            </CardTitle>
+            <CardDescription>
+              Today's priorities and action items
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+            <Target className="w-12 h-12 text-muted-foreground mb-3 opacity-50" />
+            <p className="text-muted-foreground mb-2">
+              Add at least 5 jobs to get personalized daily recommendations
+            </p>
+            <Button variant="outline" size="sm" onClick={() => setLocation("/jobs")} data-testid="button-add-jobs-focus">
+              <Plus className="w-4 h-4 mr-1" />
+              Add Jobs
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Top Insights */}
-      <div>
-        <h2 className="text-xl font-heading font-semibold mb-4">Top Insights</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <InsightCard
-            type="pricing"
-            priority="high"
-            problem="You're charging £5/hour less than competitors for emergency calls"
-            action="Increase Emergency Rate to £70/hour"
-            impact="+£850/month"
-          />
-          <InsightCard
-            type="customer"
-            priority="medium"
-            problem="Sarah M. generates 40% more revenue per hour than average"
-            action="Schedule Follow-up Meeting"
-            impact="Strengthen key relationship"
-          />
-          <InsightCard
-            type="efficiency"
-            priority="low"
-            problem="Winter months show 25% higher demand for emergency services"
-            action="Review Winter Availability"
-            impact="Plan resource allocation"
-          />
+      {jobs.length >= 5 ? (
+        <div>
+          <h2 className="text-xl font-heading font-semibold mb-4">Top Insights</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <InsightCard
+              type="pricing"
+              priority="high"
+              problem="You're charging £5/hour less than competitors for emergency calls"
+              action="Increase Emergency Rate to £70/hour"
+              impact="+£850/month"
+            />
+            <InsightCard
+              type="customer"
+              priority="medium"
+              problem="Sarah M. generates 40% more revenue per hour than average"
+              action="Schedule Follow-up Meeting"
+              impact="Strengthen key relationship"
+            />
+            <InsightCard
+              type="efficiency"
+              priority="low"
+              problem="Winter months show 25% higher demand for emergency services"
+              action="Review Winter Availability"
+              impact="Plan resource allocation"
+            />
+          </div>
         </div>
-      </div>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-muted-foreground" />
+              Top Insights
+            </CardTitle>
+            <CardDescription>
+              AI-powered recommendations for your business
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+            <BarChart3 className="w-12 h-12 text-muted-foreground mb-3 opacity-50" />
+            <p className="text-muted-foreground mb-2">
+              Add at least 5 jobs to unlock pricing, customer, and efficiency insights
+            </p>
+            <Button variant="outline" size="sm" onClick={() => setLocation("/jobs")} data-testid="button-add-jobs-insights">
+              <Plus className="w-4 h-4 mr-1" />
+              Add Jobs
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Primary Chart */}
-      <div className="max-w-4xl">
-        {/* Revenue Trends */}
-        <ChartContainer
-          title="Revenue & Forecast Trends"
-          description="Monthly performance with predictions"
-        >
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="revenue" stroke="hsl(var(--chart-1))" name="Actual Revenue" strokeWidth={2} />
-              <Line type="monotone" dataKey="forecast" stroke="hsl(var(--chart-2))" name="Forecast" strokeDasharray="5 5" />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartContainer>
-        <ChartInsight
-          explanation="This trend line tracks your actual monthly revenue against AI-powered forecasts to help you understand business trajectory and plan ahead."
-          insight="Your revenue is trending upward with 48% growth from January (£4,200) to June (£6,200), consistently beating forecasts by 3-5%."
-          callToAction="Based on this growth trend, set a £7,000 revenue target for July and increase marketing efforts to maintain momentum."
-          onActionClick={() => console.log("Set revenue target")}
-        />
-      </div>
+      {jobs.length >= 5 ? (
+        <div className="max-w-4xl">
+          {/* Revenue Trends */}
+          <ChartContainer
+            title="Revenue & Forecast Trends"
+            description="Monthly performance with predictions"
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={revenueData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="revenue" stroke="hsl(var(--chart-1))" name="Actual Revenue" strokeWidth={2} />
+                <Line type="monotone" dataKey="forecast" stroke="hsl(var(--chart-2))" name="Forecast" strokeDasharray="5 5" />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartContainer>
+          <ChartInsight
+            explanation="This trend line tracks your actual monthly revenue against AI-powered forecasts to help you understand business trajectory and plan ahead."
+            insight="Your revenue is trending upward with 48% growth from January (£4,200) to June (£6,200), consistently beating forecasts by 3-5%."
+            callToAction="Based on this growth trend, set a £7,000 revenue target for July and increase marketing efforts to maintain momentum."
+            onActionClick={() => console.log("Set revenue target")}
+          />
+        </div>
+      ) : (
+        <Card className="max-w-4xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-muted-foreground" />
+              Revenue & Forecast Trends
+            </CardTitle>
+            <CardDescription>
+              Monthly performance with predictions
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+            <DollarSign className="w-12 h-12 text-muted-foreground mb-3 opacity-50" />
+            <p className="text-muted-foreground mb-2">
+              Add at least 5 jobs to see revenue trends and forecasts
+            </p>
+            <Button variant="outline" size="sm" onClick={() => setLocation("/jobs")} data-testid="button-add-jobs-revenue">
+              <Plus className="w-4 h-4 mr-1" />
+              Add Jobs
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* User Selected Charts */}
-      {dashboardCharts.length > 0 && (
+      {jobs.length >= 5 && dashboardCharts.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-heading font-semibold">Your Dashboard Charts</h2>
@@ -516,6 +630,7 @@ export default function Dashboard() {
           location={userProfile.location}
           currentRate={userProfile.targetHourlyRate}
           services={userProfile.specializations}
+          jobCount={jobs.length}
         />
       </div>
     </div>

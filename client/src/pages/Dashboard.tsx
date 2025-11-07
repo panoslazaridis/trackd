@@ -427,8 +427,8 @@ export default function Dashboard() {
               <>
                 Add jobs to start getting valuable insights about your business performance, pricing, and efficiency.
                 <Button 
-                  variant="link" 
-                  className="px-1 h-auto text-primary" 
+                  variant="ghost" 
+                  className="px-1 h-auto text-primary underline underline-offset-2" 
                   onClick={() => setLocation("/jobs")}
                   data-testid="link-add-first-job"
                 >
@@ -440,8 +440,8 @@ export default function Dashboard() {
               <>
                 You have {jobs.length} job{jobs.length !== 1 ? 's' : ''} logged. Add {5 - jobs.length} more to unlock revenue analytics, pricing insights, and performance metrics.
                 <Button 
-                  variant="link" 
-                  className="px-1 h-auto text-primary" 
+                  variant="ghost" 
+                  className="px-1 h-auto text-primary underline underline-offset-2" 
                   onClick={() => setLocation("/jobs")}
                   data-testid="link-add-more-jobs"
                 >

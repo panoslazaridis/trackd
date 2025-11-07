@@ -1,10 +1,78 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import helmet from "helmet";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
+import { pool } from "./db";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+
+// In development, relax TLS verification to avoid local SSL chain issues (Supabase pooler, etc.)
+if (process.env.NODE_ENV !== "production") {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+}
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Security middleware
+const isDev = process.env.NODE_ENV !== "production";
+app.use(
+  helmet({
+    // Disable CSP in dev so Vite's inline modules and HMR work
+    contentSecurityPolicy: isDev ? false : undefined,
+    crossOriginEmbedderPolicy: false,
+  }),
+);
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  }),
+);
+
+// Rate limiting (enabled only in production and scoped to sensitive routes)
+if (process.env.NODE_ENV === "production") {
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 50,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  const aiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  app.use(["/api/auth/login", "/api/auth/signup"], authLimiter);
+  app.use("/api/ai", aiLimiter);
+  app.use("/api/insights", aiLimiter);
+}
+
+// Session store in Postgres (via Supabase/Neon)
+const PgSession = connectPgSimple(session);
+app.use(
+  session({
+    store: new PgSession({ 
+      pool,
+      tableName: "session",
+      createTableIfMissing: true,
+    }),
+    name: "sid",
+    secret: process.env.SESSION_SECRET || "dev-secret-change-me",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
+    },
+  }),
+);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -64,7 +132,6 @@ app.use((req, res, next) => {
   server.listen({
     port,
     host: "0.0.0.0",
-    reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
   });

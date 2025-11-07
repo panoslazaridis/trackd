@@ -36,20 +36,29 @@ export default function Jobs() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(jobData),
       });
-      if (!response.ok) throw new Error('Failed to create job');
+      if (!response.ok) {
+        let msg = 'Failed to create job';
+        try {
+          const text = await response.text();
+          try {
+            const json = JSON.parse(text);
+            msg = json.message || json.error || text;
+          } catch {
+            msg = text || msg;
+          }
+        } catch {}
+        throw new Error(msg);
+      }
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/jobs', userId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/customers', userId] });
       toast({ title: "Success", description: "Job created successfully" });
       setIsFormOpen(false);
     },
     onError: (error) => {
-      toast({ 
-        title: "Error", 
-        description: "Failed to create job", 
-        variant: "destructive" 
-      });
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
       console.error('Error creating job:', error);
     },
   });
@@ -106,11 +115,19 @@ export default function Jobs() {
 
   const handleAddJob = (jobData: any) => {
     console.log("Adding new job:", jobData);
+    const revenueNum = parseFloat(jobData.revenue);
+    const hoursNum = parseFloat(jobData.hours);
+    const expensesNum = jobData.expenses ? parseFloat(jobData.expenses) : 0;
+    const safeHours = isNaN(hoursNum) || hoursNum <= 0 ? 0 : hoursNum;
+    const hourlyRateNum = safeHours > 0 && !isNaN(revenueNum) ? revenueNum / safeHours : 0;
+
     const processedJobData = {
       ...jobData,
-      revenue: parseFloat(jobData.revenue).toString(),
-      hours: parseFloat(jobData.hours).toString(),
-      hourlyRate: (parseFloat(jobData.revenue) / parseFloat(jobData.hours)).toString(),
+      revenue: isNaN(revenueNum) ? "0" : revenueNum.toString(),
+      hours: safeHours.toString(),
+      expenses: expensesNum.toString(),
+      hourlyRate: hourlyRateNum.toString(),
+      projectDuration: jobData.duration,
       date: new Date(jobData.date),
     };
     createJobMutation.mutate(processedJobData);
@@ -264,7 +281,7 @@ export default function Jobs() {
                     </span>
                   </h3>
                   <div className="space-y-2">
-                    {statusJobs.map(job => (
+                    {statusJobs.map((job: Job) => (
                       <div key={job.id} className="bg-muted/30 rounded-lg p-3 hover-elevate">
                         <p className="font-medium text-sm">{job.customerName}</p>
                         <p className="text-xs text-muted-foreground">{job.jobType}</p>

@@ -9,7 +9,10 @@ type InsightPriority = "high" | "medium" | "low";
 interface InsightCardProps {
   type: InsightType;
   priority: InsightPriority;
-  problem: string;
+  // Support either `problem` or `title`+`description` so examples and pages can both use it
+  problem?: string;
+  title?: string;
+  description?: string;
   action: string;
   impact: string;
   onTakeAction?: () => void;
@@ -33,6 +36,8 @@ export default function InsightCard({
   type,
   priority,
   problem,
+  title,
+  description,
   action,
   impact,
   onTakeAction,
@@ -55,9 +60,16 @@ export default function InsightCard({
             <Icon className={`h-4 w-4 ${typeSettings.color}`} />
           </div>
           <div className="flex-1">
-            <p className="text-sm text-muted-foreground font-medium mb-2">
-              {problem}
-            </p>
+            {title ? (
+              <div className="mb-2">
+                <p className="text-sm font-semibold text-foreground">{title}</p>
+                {description && (
+                  <p className="text-xs text-muted-foreground mt-1">{description}</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground font-medium mb-2">{problem}</p>
+            )}
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <Badge className={`text-xs ${prioritySettings.color}`}>

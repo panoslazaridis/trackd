@@ -9,8 +9,8 @@ interface CompetitorCardProps {
   services: string[];
   averageRate: number;
   yourRate: number;
-  phone?: string;
-  website?: string;
+  phone?: string | null;
+  website?: string | null;
   rating?: number;
   reviewCount?: number;
   onViewDetails?: () => void;

@@ -4,13 +4,13 @@ import { storage } from "./storage";
 import { getAllTierConfigs } from "./airtable";
 import type { Currency } from "@shared/currency";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
-}
+const hasStripe = Boolean(process.env.STRIPE_SECRET_KEY);
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-09-30.clover" as any,
-});
+export const stripe = hasStripe
+  ? new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+      apiVersion: "2025-09-30.clover" as any,
+    })
+  : (null as any);
 
 // Stripe pricing tiers - will be fetched from Airtable dynamically
 // These are fallback values if Airtable is unavailable
@@ -21,6 +21,40 @@ const FALLBACK_TIER_PRICES = {
 };
 
 export async function registerStripeRoutes(app: Express) {
+  // In local/dev without Stripe configured, register no-op endpoints
+  if (!hasStripe) {
+    console.warn("Stripe credentials not configured. Registering stub routes.");
+
+    app.post("/api/stripe/create-customer", async (_req, res) => {
+      res.status(200).json({ customerId: "stub_customer" });
+    });
+
+    app.post("/api/stripe/create-checkout-session", async (_req, res) => {
+      res.status(200).json({ sessionId: "stub_session", url: null });
+    });
+
+    app.post("/api/stripe/checkout-success", async (_req, res) => {
+      res.json({ success: true });
+    });
+
+    app.post("/api/stripe/cancel-subscription", async (_req, res) => {
+      res.json({ success: true });
+    });
+
+    app.post("/api/stripe/reactivate-subscription", async (_req, res) => {
+      res.json({ success: true });
+    });
+
+    app.get("/api/stripe/subscription/:userId", async (_req, res) => {
+      res.json({ subscription: null });
+    });
+
+    app.post("/api/stripe/webhook", async (_req: Request, res: Response) => {
+      res.json({ received: true });
+    });
+
+    return;
+  }
   
   // Create or retrieve Stripe customer
   app.post("/api/stripe/create-customer", async (req, res) => {

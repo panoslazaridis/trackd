@@ -307,8 +307,8 @@ export default function Competitors() {
             services={((competitor.services ?? []) as string[])}
             averageRate={parseFloat(competitor.hourlyRate as any ?? "0")}
             yourRate={yourAverageRate}
-            phone={competitor.phone}
-            website={competitor.website}
+            phone={competitor.phone ?? undefined}
+            website={competitor.website ?? undefined}
             rating={parseFloat(competitor.rating as any ?? "0")}
             reviewCount={competitor.reviewCount ?? 0}
             onViewDetails={() => console.log(`View details for ${competitor.name}`)}

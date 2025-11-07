@@ -200,7 +200,15 @@ export default function Settings() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: Partial<BusinessProfile>) => {
-      return await apiRequest('PUT', `/api/user/${userId}/profile`, data);
+      // Drizzle Zod expects decimal fields as strings; coerce here
+      const payload: Record<string, any> = { ...data };
+      if (payload.targetHourlyRate !== undefined) {
+        payload.targetHourlyRate = String(payload.targetHourlyRate);
+      }
+      if (payload.monthlyRevenueGoal !== undefined) {
+        payload.monthlyRevenueGoal = String(payload.monthlyRevenueGoal);
+      }
+      return await apiRequest('PUT', `/api/user/${userId}/profile`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/user/${userId}`] });

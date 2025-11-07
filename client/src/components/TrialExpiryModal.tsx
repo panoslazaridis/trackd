@@ -13,6 +13,7 @@ import { Check, CreditCard, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCurrentUserId } from "@/lib/auth";
+import { useAuth } from "@/contexts/AuthContext";
 import { differenceInDays } from "date-fns";
 import { formatPrice, type Currency } from "@shared/currency";
 
@@ -70,6 +71,12 @@ function getTierFeatureList(tier: TierConfig): string[] {
 
 export default function TrialExpiryModal() {
   const { toast } = useToast();
+  const { userId } = useAuth();
+
+  // Do not render or run queries if no authenticated user
+  if (!userId) {
+    return null;
+  }
 
   const { data: subscription } = useQuery<any>({
     queryKey: ["/api/subscription/current"],
@@ -80,7 +87,7 @@ export default function TrialExpiryModal() {
   });
 
   const { data: userData } = useQuery<{ preferredCurrency: Currency }>({
-    queryKey: [`/api/user/${getCurrentUserId()}`],
+    queryKey: [`/api/user/${userId}`],
   });
 
   // Calculate if trial has expired
@@ -97,7 +104,7 @@ export default function TrialExpiryModal() {
   const createCheckoutMutation = useMutation({
     mutationFn: async ({ tier }: { tier: string }) => {
       const response = await apiRequest("POST", "/api/stripe/create-checkout-session", {
-        userId: getCurrentUserId(),
+        userId,
         tier,
         billingCycle: "monthly",
       });

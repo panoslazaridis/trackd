@@ -1,4 +1,4 @@
-import { getTierConfig, getAllTierConfigs, type TierConfig } from './airtable';
+import { getTierConfig, getAllTierConfigs, clearTierConfigCache, type TierConfig } from './airtable';
 import type { Express } from 'express';
 
 /**
@@ -53,6 +53,9 @@ export async function registerConfigRoutes(app: Express) {
   // Get all tier configurations
   app.get('/api/config/tiers', async (req, res) => {
     try {
+      if (req.query.refresh === '1') {
+        clearTierConfigCache();
+      }
       const tiers = await getAllTierConfigs();
       res.json({ tiers });
     } catch (error: any) {

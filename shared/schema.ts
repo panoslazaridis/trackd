@@ -384,6 +384,8 @@ export const insertUserSchema = createInsertSchema(users).pick({
   businessName: true,
   ownerName: true,
   businessType: true,
+  businessTypeOther: true,
+  postcode: true,
   phone: true,
   location: true,
   serviceArea: true,

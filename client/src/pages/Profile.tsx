@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { businessTypes, BusinessType } from "@/components/BusinessTypeSelector";
 import { useBusinessContext } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCurrentUserId } from "@/lib/auth";
@@ -79,6 +80,7 @@ export default function Profile() {
   const { businessType, setBusinessType, userProfile, updateProfile } = useBusinessContext();
   const userId = getCurrentUserId();
   const { toast } = useToast();
+  const { logout } = useAuth();
   
   // Fetch user data from API
   const { data: userData } = useQuery<{ preferredCurrency: Currency }>({
@@ -195,6 +197,9 @@ export default function Profile() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={logout} data-testid="button-logout">
+            Log out
+          </Button>
           {isEditing ? (
             <>
               <Button variant="outline" onClick={handleCancel} data-testid="button-cancel-profile">

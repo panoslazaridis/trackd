@@ -1,8 +1,13 @@
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Provider selection: 'auto' (default), 'openai', or 'perplexity'
+const providerPreference = (process.env.AI_PROVIDER || 'auto').toLowerCase();
+const hasOpenAIKey = Boolean(process.env.OPENAI_API_KEY);
+const hasPerplexityKey = Boolean(process.env.PERPLEXITY_API_KEY);
+
+const openai = hasOpenAIKey
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 interface CompetitorAnalysisRequest {
   businessType: string;
@@ -54,34 +59,8 @@ Respond in JSON format with:
 `;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 1500,
-      response_format: { type: "json_object" },
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('No response from OpenAI');
-    }
-
-    // Clean content and handle various formatting issues
-    let cleanContent = content.trim();
-    
-    // Remove code block markers if present
-    cleanContent = cleanContent.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-    
-    // Remove any leading/trailing non-JSON content
-    const jsonStart = cleanContent.indexOf('{');
-    const jsonEnd = cleanContent.lastIndexOf('}');
-    
-    if (jsonStart !== -1 && jsonEnd !== -1) {
-      cleanContent = cleanContent.substring(jsonStart, jsonEnd + 1);
-    }
-    
-    return JSON.parse(cleanContent);
+    const json = await chatJson(prompt);
+    return json as AnalysisResponse;
   } catch (error) {
     console.error('Error generating competitor analysis:', error);
     throw new Error('Failed to generate competitor analysis');
@@ -120,36 +99,84 @@ Respond in JSON format with:
 `;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 1500,
-      response_format: { type: "json_object" },
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('No response from OpenAI');
-    }
-
-    // Clean content and handle various formatting issues
-    let cleanContent = content.trim();
-    
-    // Remove code block markers if present
-    cleanContent = cleanContent.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-    
-    // Remove any leading/trailing non-JSON content
-    const jsonStart = cleanContent.indexOf('{');
-    const jsonEnd = cleanContent.lastIndexOf('}');
-    
-    if (jsonStart !== -1 && jsonEnd !== -1) {
-      cleanContent = cleanContent.substring(jsonStart, jsonEnd + 1);
-    }
-    
-    return JSON.parse(cleanContent);
+    const json = await chatJson(prompt);
+    return json as AnalysisResponse;
   } catch (error) {
     console.error('Error generating pricing analysis:', error);
     throw new Error('Failed to generate pricing analysis');
   }
+}
+
+// Helper to call the configured AI provider and return JSON content
+async function chatJson(prompt: string): Promise<unknown> {
+  // Decide provider
+  const usePerplexity =
+    (providerPreference === 'perplexity' || providerPreference === 'auto') && hasPerplexityKey;
+  const useOpenAI =
+    (providerPreference === 'openai' || providerPreference === 'auto') && hasOpenAIKey;
+
+  // Perplexity branch (OpenAI-compatible endpoint)
+  if (usePerplexity) {
+    const model = process.env.PERPLEXITY_MODEL || 'sonar';
+    const resp = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+      }),
+    });
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(`Perplexity API error: ${resp.status} ${text}`);
+    }
+    const data = await resp.json();
+    const content: string | undefined = data?.choices?.[0]?.message?.content;
+    if (!content) throw new Error('No response from Perplexity');
+    return safeParseJson(content);
+  }
+
+  // OpenAI branch
+  if (useOpenAI && openai) {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      max_tokens: 1500,
+    });
+    const content = response.choices[0]?.message?.content;
+    if (!content) throw new Error('No response from OpenAI');
+    return safeParseJson(content);
+  }
+
+  // Mock fallback
+  return {
+    analysis:
+      'Offline mode: No AI provider configured. Using mock response. Consider service differentiation, local SEO, and seasonal demand.',
+    keyInsights: [
+      'Market competition appears moderate; niche specialization can help',
+      'Pricing transparency and reviews drive customer selection',
+      'Local SEO and Google Business Profile are key acquisition channels',
+    ],
+    recommendations: [
+      'Publish case studies and before/after photos',
+      'Offer tiered service packages with clear inclusions',
+      'Request reviews after each completed job',
+    ],
+  };
+}
+
+function safeParseJson(content: string): unknown {
+  let clean = content.trim();
+  clean = clean.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+  const start = clean.indexOf('{');
+  const end = clean.lastIndexOf('}');
+  if (start !== -1 && end !== -1) {
+    clean = clean.substring(start, end + 1);
+  }
+  return JSON.parse(clean);
 }

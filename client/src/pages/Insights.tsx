@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   Lightbulb, 
   TrendingUp, 
@@ -169,7 +170,7 @@ const priorityConfig = {
 };
 
 export default function Insights() {
-  const userId = "test-user-plumber"; // TODO: Get from auth
+  const { userId } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("insights");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
@@ -177,15 +178,13 @@ export default function Insights() {
   // Fetch insights from API
   const { data: insights = [], isLoading } = useQuery<Insight[]>({
     queryKey: [`/api/insights/${userId}`],
+    enabled: !!userId,
   });
 
   // Regenerate insights mutation
   const regenerateMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest({
-        url: `/api/insights/${userId}/regenerate`,
-        method: "POST",
-      });
+      return await apiRequest("POST", `/api/insights/${userId}/regenerate`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/insights/${userId}`] });
@@ -218,7 +217,8 @@ export default function Insights() {
   };
 
   const filteredInsights = insights.filter(insight => {
-    const matchesTab = activeTab === "all" || insight.status === activeTab;
+    const tabShowsAll = activeTab === "insights" || activeTab === "charts" || activeTab === "all";
+    const matchesTab = tabShowsAll || insight.status === activeTab;
     const matchesPriority = priorityFilter === "all" || insight.priority === priorityFilter;
     return matchesTab && matchesPriority;
   });

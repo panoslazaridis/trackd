@@ -17,12 +17,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    // Check for stored userId on mount
-    const storedUserId = localStorage.getItem("userId");
-    if (storedUserId) {
-      setUserId(storedUserId);
-    }
-    setIsLoading(false);
+    // Prefer server session; fall back to localStorage for compatibility
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setUserId(data.userId);
+        } else {
+          const storedUserId = localStorage.getItem("userId");
+          if (storedUserId) setUserId(storedUserId);
+        }
+      } catch {
+        const storedUserId = localStorage.getItem("userId");
+        if (storedUserId) setUserId(storedUserId);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   }, []);
 
   const login = (newUserId: string) => {
@@ -31,9 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem("userId");
-    setUserId(null);
-    setLocation("/login");
+    fetch("/api/auth/logout", { method: "POST", credentials: "include" }).finally(() => {
+      localStorage.removeItem("userId");
+      setUserId(null);
+      setLocation("/login");
+    });
   };
 
   return (

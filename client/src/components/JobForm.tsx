@@ -13,6 +13,8 @@ import { CalendarDays, Check, ChevronsUpDown, Clock, DollarSign, User, UserPlus,
 import { useQuery } from "@tanstack/react-query";
 import { businessTypes } from "./BusinessTypeSelector";
 import { useBusinessContext } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 import CustomerForm from "./CustomerForm";
 import type { Customer } from "@shared/schema";
 
@@ -61,9 +63,9 @@ const jobStatuses = [
 ];
 
 export default function JobForm({ onSubmit, onCancel, className = "" }: JobFormProps) {
-  const { businessType, getCurrentBusiness } = useBusinessContext();
-  const currentBusiness = getCurrentBusiness();
-  const userId = currentBusiness?.id || "test-user-plumber"; // TODO: Get from auth
+  const { businessType } = useBusinessContext();
+  const { userId } = useAuth();
+  const { toast } = useToast();
   
   const [formData, setFormData] = useState<JobFormData>({
     customerName: "",
@@ -85,7 +87,9 @@ export default function JobForm({ onSubmit, onCancel, className = "" }: JobFormP
 
   // Fetch customers for autocomplete
   const { data: customers = [] } = useQuery<Customer[]>({
-    queryKey: [`/api/customers/${userId}`],
+    queryKey: ["/api/customers", userId],
+    queryFn: () => fetch(`/api/customers/${userId}`).then(res => res.json()),
+    enabled: !!userId,
   });
 
   const handleInputChange = (field: keyof JobFormData, value: string) => {
@@ -109,6 +113,23 @@ export default function JobForm({ onSubmit, onCancel, className = "" }: JobFormP
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Basic validation to match server schema
+    if (!formData.customerName.trim()) {
+      toast({ title: "Missing Customer", description: "Please select or enter a customer.", variant: "destructive" });
+      return;
+    }
+    if (!formData.jobType.trim()) {
+      toast({ title: "Missing Job Type", description: "Please select a job type.", variant: "destructive" });
+      return;
+    }
+    if (!formData.revenue) {
+      toast({ title: "Missing Revenue", description: "Please enter revenue.", variant: "destructive" });
+      return;
+    }
+    if (!formData.hours) {
+      toast({ title: "Missing Hours", description: "Please enter hours worked.", variant: "destructive" });
+      return;
+    }
     console.log("Job form submitted:", formData);
     onSubmit?.(formData);
   };
@@ -273,7 +294,9 @@ export default function JobForm({ onSubmit, onCancel, className = "" }: JobFormP
               </Label>
               <Input
                 id="hours"
-                type="text"
+                type="number"
+                min="0"
+                step="0.1"
                 placeholder="8.5"
                 value={formData.hours}
                 onChange={(e) => handleInputChange("hours", e.target.value)}

@@ -222,7 +222,6 @@ export async function updateTierConfigInAirtable(
     const fields: any = {};
 
     if (updates.displayName) fields['Display Name'] = updates.displayName;
-    if (updates.monthlyPriceGbp !== undefined) fields['Monthly Price'] = updates.monthlyPriceGbp;
     if (updates.trialDurationDays !== undefined) fields['Trial Duration Days'] = updates.trialDurationDays;
     if (updates.maxJobsPerMonth !== undefined) fields['Max Jobs Per Month'] = updates.maxJobsPerMonth;
     if (updates.maxCompetitors !== undefined) fields['Max Competitors'] = updates.maxCompetitors;

@@ -7,9 +7,20 @@ import {
   type Insight, type InsertInsight,
   type UserSubscription
 } from "@shared/schema";
-import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
+
+// Decide storage backend at runtime to allow local development without a database
+const forceMemory = process.env.TRACKD_FORCE_MEMORY === "1";
+const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
+const useDatabase = hasDatabaseUrl && !forceMemory;
+
+// Lazily load the database only when needed so local runs can skip DATABASE_URL
+let db: any;
+if (useDatabase) {
+  const dbModule = await import("./db");
+  db = dbModule.db;
+}
 
 // Storage interface for all business entities
 export interface IStorage {
@@ -141,7 +152,9 @@ export class DatabaseStorage implements IStorage {
           competitorAlerts: true,
           insightDigest: true,
           jobReminders: false,
-          marketingTips: true
+        marketingTips: true,
+        emailNotifications: true,
+        smsNotifications: false
         }
       })
       .returning();
@@ -551,7 +564,7 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(desc(jobs.date));
     
-    return result.map(job => ({
+    return result.map((job: any) => ({
       id: job.id,
       customerName: job.customerName,
       jobType: job.jobType,
@@ -586,7 +599,7 @@ export class DatabaseStorage implements IStorage {
     
     const totalCustomers = customerStats.length;
     
-    return customerStats.map((customer, index) => {
+    return customerStats.map((customer: any, index: number) => {
       const lifetimeRevenue = Number(customer.lifetimeRevenue);
       const totalJobs = Number(customer.totalJobs);
       const averageJobValue = totalJobs > 0 ? lifetimeRevenue / totalJobs : 0;
@@ -630,7 +643,7 @@ export class DatabaseStorage implements IStorage {
       .groupBy(sql`TO_CHAR(${jobs.date}, 'YYYY-MM')`)
       .orderBy(sql`TO_CHAR(${jobs.date}, 'YYYY-MM')`);
     
-    return trends.map(trend => {
+    return trends.map((trend: any) => {
       const totalRevenue = Number(trend.totalRevenue);
       const totalHours = Number(trend.totalHours);
       const averageHourlyRate = totalHours > 0 ? totalRevenue / totalHours : 0;
@@ -680,7 +693,7 @@ export class DatabaseStorage implements IStorage {
         eq(competitors.isActive, true)
       ));
     
-    return competitorList.map(competitor => {
+    return competitorList.map((competitor: any) => {
       const theirRate = competitor.hourlyRate ? Number(competitor.hourlyRate) : null;
       const priceDifference = theirRate ? userAverageRate - theirRate : 0;
       
@@ -763,8 +776,6 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
-
 // Legacy MemStorage for reference - can be removed once database is working
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
@@ -788,6 +799,7 @@ export class MemStorage implements IStorage {
     const user: User = { 
       ...insertUser, 
       id,
+      postcode: null,
       businessName: null,
       ownerName: null,
       email: null,
@@ -796,6 +808,7 @@ export class MemStorage implements IStorage {
       serviceArea: null,
       serviceAreaRadius: null,
       businessType: null,
+      businessTypeOther: null,
       specializations: [],
       targetHourlyRate: null,
       location: null,
@@ -803,13 +816,17 @@ export class MemStorage implements IStorage {
       yearsInBusiness: null,
       subscriptionTier: "free",
       onboardingStatus: "incomplete",
+      onboardingStep: 0,
+      preferredCurrency: "GBP",
       monthlyRevenueGoal: null,
       weeklyHoursTarget: null,
       notifications: {
         competitorAlerts: true,
         insightDigest: true,
         jobReminders: false,
-        marketingTips: true
+        marketingTips: true,
+        emailNotifications: true,
+        smsNotifications: false
       },
       createdAt: new Date(),
       updatedAt: new Date()
@@ -831,9 +848,11 @@ export class MemStorage implements IStorage {
       email: data.email,
       phone: null,
       address: null,
+      postcode: null,
       serviceArea: null,
       serviceAreaRadius: null,
       businessType: null,
+      businessTypeOther: null,
       specializations: [],
       targetHourlyRate: null,
       location: null,
@@ -841,13 +860,17 @@ export class MemStorage implements IStorage {
       yearsInBusiness: null,
       subscriptionTier: "free",
       onboardingStatus: "incomplete",
+      onboardingStep: 0,
+      preferredCurrency: "GBP",
       monthlyRevenueGoal: null,
       weeklyHoursTarget: null,
       notifications: {
         competitorAlerts: true,
         insightDigest: true,
         jobReminders: false,
-        marketingTips: true
+        marketingTips: true,
+        emailNotifications: true,
+        smsNotifications: false
       },
       createdAt: new Date(),
       updatedAt: new Date()
@@ -897,3 +920,5 @@ export class MemStorage implements IStorage {
   async getUserSubscription(): Promise<UserSubscription | undefined> { return undefined; }
   async updateUserSubscription(): Promise<UserSubscription> { throw new Error("Not implemented in MemStorage"); }
 }
+
+export const storage: IStorage = useDatabase ? new DatabaseStorage() : new MemStorage();

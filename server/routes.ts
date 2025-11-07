@@ -51,6 +51,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "OK", timestamp: new Date().toISOString() });
   });
 
+  // n8n/Tavily webhook to ingest competitor search results
+  // Expects body: { userId: string, competitors: Array<{ name: string; location?: string; hourlyRate?: number; website?: string; phone?: string; isActive?: boolean; }> }
+  app.post("/api/webhooks/competitor-search", async (req, res) => {
+    try {
+      const { userId, competitors } = req.body || {};
+      if (!userId || !Array.isArray(competitors)) {
+        return res.status(400).json({ error: "Invalid payload" });
+      }
+
+      for (const c of competitors) {
+        // Upsert naive: try to find by name for the user, else create new
+        const existing = (await storage.getCompetitors(userId)).find((x) => x.name?.toLowerCase() === String(c.name || "").toLowerCase());
+        if (existing) {
+          await storage.updateCompetitor(existing.id, userId, {
+            location: c.location,
+            hourlyRate: c.hourlyRate as any,
+            website: c.website as any,
+            phone: c.phone as any,
+            isActive: c.isActive ?? true,
+          });
+        } else if (c.name) {
+          await storage.createCompetitor(userId, {
+            name: c.name,
+            location: c.location || "",
+            services: [],
+            hourlyRate: (c.hourlyRate as any) ?? null,
+            averageRate: null,
+            emergencyCalloutFee: null,
+            calloutFee: null,
+            marketPositioning: null as any,
+            phone: (c.phone as any) ?? null,
+            website: (c.website as any) ?? null,
+            rating: null as any,
+            reviewCount: null as any,
+            isActive: c.isActive ?? true,
+            strengths: [],
+            weaknesses: [],
+            notes: null as any,
+          });
+        }
+      }
+      return res.json({ success: true });
+    } catch (e: any) {
+      return res.status(500).json({ error: e?.message || "Failed to ingest competitors" });
+    }
+  });
+
+  // Session auth helpers
+  app.get("/api/auth/me", (req, res) => {
+    const userId = (req as any).session?.userId as string | undefined;
+    if (!userId) return res.status(401).json({ error: "Not authenticated" });
+    res.json({ userId });
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    const sess = (req as any).session;
+    if (!sess) return res.json({ success: true });
+    sess.destroy(() => res.json({ success: true }));
+  });
+
   // Signup endpoint
   app.post("/api/auth/signup", async (req, res) => {
     try {
@@ -93,24 +153,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
 
-      // Create trial subscription (30 days)
-      const trialStartDate = new Date();
-      const trialEndDate = new Date();
-      trialEndDate.setDate(trialEndDate.getDate() + 30);
+      // Establish session
+      (req as any).session.userId = user.id;
 
-      await storage.updateUserSubscription(user.id, {
-        subscriptionTier: "trial",
-        subscriptionStatus: "trialing",
-        trialActive: true,
-        trialStartDate,
-        trialEndDate,
-        currency: "GBP", // Default to GBP, can be changed in settings
-        billingCycle: "monthly",
-        monthlyPriceGbp: "0",
-        maxJobsPerMonth: 50, // Trial limits
-        maxCompetitors: 3,
-        aiParsingCreditsMonthly: 3,
-      });
+      // Trial policy and subscription setup (best-effort in dev/memory mode)
+      try {
+        // Users can only have one free trial ever
+        const existingSub = await storage.getUserSubscription(user.id);
+        const hasHadTrial = Boolean(existingSub?.trialStartDate);
+
+        if (hasHadTrial) {
+          await storage.updateUserSubscription(user.id, {
+            subscriptionTier: "free",
+            subscriptionStatus: "active",
+            trialActive: false,
+            currency: "GBP",
+            billingCycle: "monthly",
+            monthlyPriceGbp: "0",
+            maxJobsPerMonth: 50,
+            maxCompetitors: 3,
+            aiParsingCreditsMonthly: 3,
+          });
+        } else {
+          // Create trial subscription (30 days)
+          const trialStartDate = new Date();
+          const trialEndDate = new Date();
+          trialEndDate.setDate(trialEndDate.getDate() + 30);
+
+          await storage.updateUserSubscription(user.id, {
+            subscriptionTier: "trial",
+            subscriptionStatus: "trialing",
+            trialActive: true,
+            trialStartDate,
+            trialEndDate,
+            currency: "GBP",
+            billingCycle: "monthly",
+            monthlyPriceGbp: "0",
+            maxJobsPerMonth: 50,
+            maxCompetitors: 3,
+            aiParsingCreditsMonthly: 3,
+          });
+        }
+      } catch (subErr) {
+        // In memory mode, subscription methods may not be implemented. Do not fail signup.
+        console.warn("Subscription not persisted (likely memory mode):", subErr);
+      }
 
       console.log(`✅ New user signed up: ${user.username} (${user.id}) - 30-day trial created`);
 
@@ -156,6 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`✅ User logged in: ${user.username} (${user.id})`);
+      (req as any).session.userId = user.id;
 
       res.json({
         success: true,
@@ -240,15 +328,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/jobs/:userId", async (req, res) => {
     try {
-      const jobData = insertJobSchema.parse(req.body);
-      const job = await storage.createJob(req.params.userId, jobData);
+      const userId = req.params.userId;
+      // Coerce incoming payload to match schema expectations
+      const body = req.body || {};
+      const coerceDecimal = (v: any) =>
+        typeof v === "number" ? v.toString() : typeof v === "string" ? v : undefined;
+      const coerceDate = (v: any) =>
+        v instanceof Date ? v : typeof v === "string" ? v : new Date(v);
+
+      const prepped = {
+        ...body,
+        revenue: coerceDecimal(body.revenue),
+        hours: coerceDecimal(body.hours),
+        expenses: body.expenses !== undefined ? coerceDecimal(body.expenses) : undefined,
+        hourlyRate: coerceDecimal(body.hourlyRate),
+        date: coerceDate(body.date),
+        projectDuration: body.projectDuration ?? body.duration,
+      };
+
+      const jobData = insertJobSchema.parse(prepped);
+
+      // If customerId is missing but we have a customerName, upsert a customer by name
+      if (!jobData.customerId && jobData.customerName) {
+        const existing = (await storage.getCustomers(userId)).find(
+          (c) => c.name?.toLowerCase() === jobData.customerName.toLowerCase(),
+        );
+        let customerId = existing?.id;
+        if (!customerId) {
+          const created = await storage.createCustomer(userId, {
+            name: jobData.customerName,
+          } as any);
+          customerId = created.id;
+        }
+        (jobData as any).customerId = customerId;
+      }
+
+      const job = await storage.createJob(userId, jobData);
       res.json(job);
     } catch (error) {
       console.error("Error creating job:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid job data", details: error.errors });
       }
-      res.status(500).json({ error: "Failed to create job" });
+      res.status(500).json({ error: "Failed to create job", message: (error as any)?.message });
     }
   });
 
@@ -472,60 +594,102 @@ For each insight, return a JSON object with:
 
 Return ONLY a valid JSON array of insights, no additional text.`;
 
-      // Call OpenAI
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: "You are a business analyst providing actionable insights for trades businesses. Always respond with valid JSON arrays only." },
-            { role: "user", content: prompt }
-          ],
-          temperature: 0.7,
-          max_tokens: 2000,
-        }),
-      });
+      let aiInsights: any[] | null = null;
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`);
-      }
-
-      const aiResponse = await response.json();
-      const content = aiResponse.choices[0].message.content;
-      
-      // Parse AI response
-      let aiInsights;
-      try {
-        aiInsights = JSON.parse(content);
-        
-        // Validate each insight has required fields
-        if (!Array.isArray(aiInsights)) {
-          throw new Error("AI response is not an array");
-        }
-        
-        aiInsights = aiInsights.filter(insight => {
-          if (!insight.title || !insight.action || !insight.impact) {
-            console.warn("Skipping invalid insight:", insight);
-            return false;
-          }
-          return true;
+      // Use OpenAI only if key is present, otherwise fall back to local insight generation
+      if (process.env.OPENAI_API_KEY) {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "You are a business analyst providing actionable insights for trades businesses. Always respond with valid JSON arrays only." },
+              { role: "user", content: prompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 2000,
+          }),
         });
 
-        if (aiInsights.length === 0) {
-          throw new Error("No valid insights in AI response");
+        if (!response.ok) {
+          throw new Error(`OpenAI API error: ${response.statusText}`);
         }
-      } catch (parseError) {
-        console.error("Failed to parse AI response:", content);
-        throw new Error("Invalid AI response format");
+
+        const aiResponse = await response.json();
+        const content = aiResponse.choices[0].message.content;
+      
+        // Parse AI response
+        try {
+          aiInsights = JSON.parse(content);
+
+          // Validate each insight has required fields
+          if (!Array.isArray(aiInsights)) {
+            throw new Error("AI response is not an array");
+          }
+
+          aiInsights = aiInsights.filter((insight: any) => {
+            if (!insight.title || !insight.action || !insight.impact) {
+              console.warn("Skipping invalid insight:", insight);
+              return false;
+            }
+            return true;
+          });
+
+          if (aiInsights.length === 0) {
+            throw new Error("No valid insights in AI response");
+          }
+        } catch (parseError) {
+          console.error("Failed to parse AI response:", content);
+          throw new Error("Invalid AI response format");
+        }
+      } else {
+        // Local fallback insights (no external AI keys)
+        const totalRevenue = recentJobs.reduce((sum, j) => sum + parseFloat(j.revenue), 0);
+        const totalHours = recentJobs.reduce((sum, j) => sum + parseFloat(j.hours), 0);
+        const avgRate = totalHours > 0 ? totalRevenue / totalHours : 0;
+        const topCustomer = customerRevenue[0];
+        const lowestType = Object.entries(jobsByType)
+          .map(([type, d]) => ({ type, rate: d.totalHours > 0 ? d.totalRevenue / d.totalHours : 0 }))
+          .sort((a, b) => a.rate - b.rate)[0];
+
+        aiInsights = [
+          {
+            title: "Raise Emergency/High-Demand Pricing",
+            description: "Your average hourly rate is below target for high-demand jobs.",
+            action: "Increase rates 5–10% on emergency work",
+            impact: `Potential +£${(totalRevenue * 0.05).toFixed(0)} monthly`,
+            priority: "medium",
+            type: "pricing",
+            category: "Revenue Optimization",
+          },
+          topCustomer && {
+            title: `Prioritize ${topCustomer.name}`,
+            description: "Top customer generates outsized revenue; schedule proactive outreach.",
+            action: "Book quarterly review call",
+            impact: `Protect £${topCustomer.revenue.toFixed(0)}/mo`,
+            priority: "high",
+            type: "customer",
+            category: "Customer Relations",
+          },
+          lowestType && {
+            title: `Improve ${lowestType.type} Margins`,
+            description: "This job type has your lowest £/hr; adjust pricing or time spent.",
+            action: "Review pricing and time estimates",
+            impact: "Reduce low-margin work",
+            priority: "low",
+            type: "efficiency",
+            category: "Operational",
+          },
+        ].filter(Boolean) as any[];
       }
 
       const duration = Date.now() - startTime;
-      const inputTokens = aiResponse.usage?.prompt_tokens ?? 0;
-      const outputTokens = aiResponse.usage?.completion_tokens ?? 0;
+      const inputTokens = 0;
+      const outputTokens = 0;
 
       // Track AI usage - TODO: Implement trackAIRequest method in storage
       // await storage.trackAIRequest({
